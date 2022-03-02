@@ -2,6 +2,7 @@ from collections import namedtuple, deque
 
 import pickle
 from typing import List
+import numpy as np
 
 import events as e
 from .callbacks import state_to_features
@@ -17,6 +18,7 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 
+REWARDS = {}
 
 def setup_training(self):
     """
@@ -29,6 +31,7 @@ def setup_training(self):
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.beta = np.random.rand(6, 24)
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):

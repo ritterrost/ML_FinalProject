@@ -7,6 +7,22 @@ import numpy as np
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
+def psi(self, game_state: dict) -> np.array:
+    self.pos = np.array(game_state['self'][3])
+    env = self.pos + np.array([[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], 
+                                 [1,-1], [1,0], [1,1]])
+    explosion = self.pos + np.array([[-1,0], [1,0], [0,-1], [0,1]])
+    bombs = np.array(game_state['bombs']).flatten()
+    l_env, l_exp, l_b = len(env), len(explosion), len(bombs)
+#    bombs = np.concatenate([bombs, np.full(12 - l_b, 0)])
+    l = l_env + l_exp #+ 12
+
+    reduced_state = np.full(l, np.nan)    
+    reduced_state[:l_env] = game_state['field'][tuple(env.T)]
+    reduced_state[l_env:l_env+l_exp] = game_state['explosion_map'][tuple(explosion.T)]
+#    reduced_state[l_env+l_exp:] = bombs
+    print("red_state", reduced_state)
+    return reduced_state
 
 def setup(self):
     """
@@ -22,15 +38,20 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    if self.train or not os.path.isfile("my-saved-model.pt"):
-        self.logger.info("Setting up model from scratch.")
-        weights = np.random.rand(len(ACTIONS))
-        self.model = weights / weights.sum()
-    else:
-        self.logger.info("Loading model from saved state.")
-        with open("my-saved-model.pt", "rb") as file:
-            self.model = pickle.load(file)
+    self.beta = beta
+    self.rho = rho
+#    if self.train or not os.path.isfile("my-saved-model.pt"):
+#        self.logger.info("Setting up model from scratch.")
+#        weights = np.random.rand(len(ACTIONS))
+#        self.model = weights / weights.sum()
+#    else:
+#        self.logger.info("Loading model from saved state.")
+#        with open("my-saved-model.pt", "rb") as file:
+#            self.model = pickle.load(file)
 
+def Qs(self, game_state):
+    return psi(self, game_state) @ self.beta
+    
 
 def act(self, game_state: dict) -> str:
     """
@@ -42,14 +63,13 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
     # todo Exploration vs exploitation
-    random_prob = .1
-    if self.train and random.random() < random_prob:
-        self.logger.debug("Choosing action purely at random.")
-        # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
-
-    self.logger.debug("Querying model for action.")
-    return np.random.choice(ACTIONS, p=self.model)
+    Q_hats = Qs(self, game_state)
+    print("Qhats", Q_hats)
+    softmax = np.exp(Q_hats/self.rho)
+    softmax[np.isnan(softmax)] = 0
+    print("softmax", softmax)
+    
+    return np.random.choice(ACTIONS, p=softmax/np.sum(softmax))
 
 
 def state_to_features(game_state: dict) -> np.array:
