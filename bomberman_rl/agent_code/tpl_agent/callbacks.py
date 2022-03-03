@@ -7,11 +7,13 @@ import numpy as np
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
-def psi(self, game_state: dict) -> np.array:
-    self.pos = np.array(game_state['self'][3])
-    env = self.pos + np.array([[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], 
+def psi(game_state: dict) -> np.array:
+    if game_state is None:
+        return None
+    pos = np.array(game_state['self'][3])
+    env = pos + np.array([[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], 
                                  [1,-1], [1,0], [1,1]])
-    explosion = self.pos + np.array([[-1,0], [1,0], [0,-1], [0,1]])
+    explosion = pos + np.array([[-1,0], [1,0], [0,-1], [0,1]])
     bombs = np.array(game_state['bombs']).flatten()
     l_env, l_exp, l_b = len(env), len(explosion), len(bombs)
 #    bombs = np.concatenate([bombs, np.full(12 - l_b, 0)])
@@ -21,7 +23,6 @@ def psi(self, game_state: dict) -> np.array:
     reduced_state[:l_env] = game_state['field'][tuple(env.T)]
     reduced_state[l_env:l_env+l_exp] = game_state['explosion_map'][tuple(explosion.T)]
 #    reduced_state[l_env+l_exp:] = bombs
-    print("red_state", reduced_state)
     return reduced_state
 
 def setup(self):
@@ -38,19 +39,23 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.beta = beta
-    self.rho = rho
-#    if self.train or not os.path.isfile("my-saved-model.pt"):
-#        self.logger.info("Setting up model from scratch.")
-#        weights = np.random.rand(len(ACTIONS))
-#        self.model = weights / weights.sum()
-#    else:
-#        self.logger.info("Loading model from saved state.")
-#        with open("my-saved-model.pt", "rb") as file:
-#            self.model = pickle.load(file)
+    if self.train or not os.path.isfile("my-saved-model.pt"):
+        self.logger.info("Setting up beta and rho from scratch.")
+        self.betas = [np.random.rand(12) for _ in range(6)]
+        self.rho = 1  # initial rho can be low as initialisation is random
+        with open("my-saved-model.pt", "wb") as file:
+            pickle.dump(dict(betas=self.betas, rho=self.rho), file)
+
+    else:
+        self.logger.info("Loading model from saved state.")
+        with open("my-saved-model.pt", "rb") as file:
+            pickledict = pickle.load(file)
+        self.betas = pickledict['betas']
+        self.rho = pickledict['rho']
 
 def Qs(self, game_state):
-    return psi(self, game_state) @ self.beta
+    self.logger.debug(psi(game_state))
+    return self.betas @ psi(game_state)
     
 
 def act(self, game_state: dict) -> str:
@@ -64,10 +69,10 @@ def act(self, game_state: dict) -> str:
     """
     # todo Exploration vs exploitation
     Q_hats = Qs(self, game_state)
-    print("Qhats", Q_hats)
+    self.logger.debug(f"Q_hats = {Q_hats}")
     softmax = np.exp(Q_hats/self.rho)
-    softmax[np.isnan(softmax)] = 0
-    print("softmax", softmax)
+    softmax[np.isinf(softmax)] = 1e4
+    self.logger.debug(f"softmax = {softmax}")
     
     return np.random.choice(ACTIONS, p=softmax/np.sum(softmax))
 
