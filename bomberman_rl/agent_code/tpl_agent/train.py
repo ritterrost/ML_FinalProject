@@ -12,16 +12,25 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 5000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 GAMMA = .5
 ALPHA = 1
 BATCH_SIZE = 5
+INITIAL_TEMP = 100
+FINAL_TEMP = 1
+N_ROUNDS = 1000
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
+WALKED_TO_COIN = 'WALKED_TO_COIN'
+WALKED_FROM_COIN = 'WALKED_FROM_COIN'
+WALKED_TO_BOMB = 'WALKED_TO_BOMB'
+WALKED_FROM_BOMB = 'WALKED_FROM_BOMB'
+
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+ACTIONS_TO_VECTOR = dict(zip(ACTIONS, np.array([[0,-1], [1,0], [0,1], [-1,0], [0,0], [0,0]])))
 
 
 def response(self, new_game_state, reward):
@@ -40,7 +49,8 @@ def gradient_descent(self, random_state=1337):
         
         Psi = self.old_game_states[action_mask][idx]
         Y = self.responses[action_mask][idx]
-        self.betas[i] += ALPHA / BATCH_SIZE * np.sum(Psi * (Y - np.dot(Psi, self.betas[i]))[:,None], axis=0)
+        new_beta = self.betas[i] + ALPHA / BATCH_SIZE * np.sum(Psi * (Y - np.dot(Psi, self.betas[i]))[:,None], axis=0)
+        self.betas[i] = new_beta / np.linalg.norm(new_beta)
 
 
 def setup_training(self):
@@ -53,9 +63,10 @@ def setup_training(self):
     """
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
+    self.rho = INITIAL_TEMP
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.counter = 0
-    self.old_game_states = np.empty((TRANSITION_HISTORY_SIZE, 12))
+    self.old_game_states = np.empty((TRANSITION_HISTORY_SIZE, psi(self, None, True)[0]))
     self.self_actions = np.empty(TRANSITION_HISTORY_SIZE).astype(str)
     self.responses = np.empty(TRANSITION_HISTORY_SIZE)
 
@@ -78,18 +89,39 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
-
-    # Idea: Add your own events to hand out rewards
-#    if ...:
-#        events.append(PLACEHOLDER_EVENT)
+    
+    
+    if not old_game_state is None:
+        old_pos = old_game_state['self'][3]
+        new_pos = new_game_state['self'][3]
+        l, l_env, l_exp, l_b, l_c = psi(self, None, give_length=True)
+        for i, bomb in enumerate(old_game_state['bombs']):
+            if i>=int(l_b/2):
+                break
+            old_dist = np.linalg.norm(np.array(bomb[0])-old_pos, ord=1)
+            if old_dist<=3:
+                if np.linalg.norm(np.array(bomb[0])-new_pos, ord=1) > old_dist:
+                    events.append(WALKED_FROM_BOMB)
+                else:
+                    events.append(WALKED_TO_BOMB)
+        if not e.COIN_FOUND in events:
+            for i, coin in old_game_state['coins']:
+                if i>=int(l_c/2):
+                    break
+                if np.linalg.norm(np.array(coin)-old_pos, ord=1)>np.linalg.norm(np.array(coin)-new_pos, ord=1):
+                    events.append(WALKED_TO_COIN)
+                else:
+                    events.append(WALKED_FROM_COIN)
 
     # state_to_features is defined in callbacks.py
-    self.transitions.append(Transition(psi(old_game_state), self_action, psi(new_game_state), reward_from_events(self, events)))
+    reward = reward_from_events(self, events)
+    red_game_state = psi(self, old_game_state)
+    i = np.random.randint(TRANSITION_HISTORY_SIZE)
+#    self.transitions.append(Transition(red_game_state, self_action, psi(self, new_game_state), reward))
     if not old_game_state is None:
-        self.old_game_states[self.counter] = psi(old_game_state)
-        self.self_actions[self.counter] = self_action
-        self.responses[self.counter] = response(self, new_game_state, reward_from_events(self, events))
-        self.counter = (self.counter + 1) % TRANSITION_HISTORY_SIZE
+        self.old_game_states[i] = red_game_state
+        self.self_actions[i] = self_action
+        self.responses[i] = response(self, new_game_state, reward)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -106,18 +138,21 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(psi(last_game_state), last_action, None, reward_from_events(self, events)))
-    self.old_game_states[self.counter] = psi(last_game_state)
-    self.self_actions[self.counter] = last_action
-    self.responses[self.counter] = reward_from_events(self, events)
-    self.counter = (self.counter + 1) % TRANSITION_HISTORY_SIZE
+    reward = reward_from_events(self, events)
+    red_game_state = psi(self, last_game_state)
+    i = np.random.randint(TRANSITION_HISTORY_SIZE)
+#    self.transitions.append(Transition(red_game_state, last_action, None, reward))
+    self.old_game_states[i] = red_game_state
+    self.self_actions[i] = last_action
+    self.responses[i] = reward
 
     gradient_descent(self)
-    self.rho = 1
+    self.rho *= (FINAL_TEMP/INITIAL_TEMP)**(1/N_ROUNDS)
+    
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(dict(betas=self.betas, rho=self.rho), file)
-    self.logger.debug(f"Betas updated to {self.betas}")
+    self.logger.debug(f"Betas and rho ({self.rho}) updated")
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -129,12 +164,15 @@ def reward_from_events(self, events: List[str]) -> int:
     """
     game_rewards = {
         e.COIN_COLLECTED: 1,
-        e.KILLED_OPPONENT: 1,
-        e.KILLED_SELF: -.5,
+ #       e.KILLED_OPPONENT: 1,
+  #      e.KILLED_SELF: 0,
         e.GOT_KILLED: -1,
         e.INVALID_ACTION: -1,
-        e.CRATE_DESTROYED: .5,
-        e.WAITED: -.01
+    #    e.CRATE_DESTROYED: .5,
+     #   WALKED_TO_COIN: .1,
+      #  WALKED_FROM_COIN: -.1,
+        WALKED_TO_BOMB: -1,
+        WALKED_FROM_BOMB: .1
     }
     reward_sum = 0
     for event in events:
