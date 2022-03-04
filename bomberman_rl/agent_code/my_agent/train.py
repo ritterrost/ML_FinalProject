@@ -68,6 +68,7 @@ def step_gradient_update(self, idx):
 
 def round_gradient_update(self):
     for i, act in enumerate(ACTIONS):
+        print("i: ", i)
         selection_mask = np.random.permutation(np.arange(BATCH_SIZE))[0:BATCH_SIZE]
         targets = self.target_history.get_by_list(i, selection_mask)
         feats = self.feat_history.get_by_list(i, selection_mask)
