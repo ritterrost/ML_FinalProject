@@ -1,10 +1,12 @@
+from time import sleep
 from agent_code.my_agent.callbacks import A_TO_NUM, Q_func
 from collections import namedtuple, deque
 import pickle
 from typing import List
 import events as e
-from agent_code.my_agent.callbacks import state_to_features
+from agent_code.my_agent.callbacks import state_to_features, BATCH_SIZE
 import numpy as np
+
 
 # This is only an example!
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
@@ -16,35 +18,41 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 ALPHA = 0.1
-BATCH_SIZE = 10
+GAMMA = 1
 
 
-def TD_target_respones(self, gamma=0.1):
-    transition = self.transitions.pop()
-
-    # Q function von next wert
-    # next_feat = state_to_features(transition.next_state)
+def immediate_q_update(self, idx):
+    transition = self.transitions[-1]
     next_q_value = Q_func(self, transition.next_state)
+    # Y_tt = transition.reward + np.max(next_q_value)
+    # print("Y_tt: ", Y_tt)
+    print("self.Q_pred: ", self.Q_pred[idx])
+    self.betas[idx] += ALPHA * (
+        transition.reward + GAMMA * np.max(next_q_value) - self.Q_pred[idx]
+    )
 
-    return transition.reward + gamma * np.max(next_q_value)
+
+def TD_target_func(self):
+    transition = self.transitions[-1]
+    # next_q_value = Q_func(self, transition.next_state)
+    return transition.reward + GAMMA * np.max(self.Q_pred)
 
 
 def gradient_update(self, idx):
+    selection_mask = np.random.permutation(np.arange(BATCH_SIZE))[0:BATCH_SIZE]
+    # print("selection mask: ", selection_mask)
+    targets = self.target_history.get_by_list(idx, selection_mask)
+    # print("targets: ", targets)
+    feats = self.feat_history.get_by_list(idx, selection_mask)
+    # print("feats: ", feats)
+    sum = 0
+    beta = self.betas[idx]
 
-    if len(self.feat_history[idx]) >= BATCH_SIZE:
-        selection_size = len(self.target_history[idx])
-        selection_mask = np.random.permutation(np.arange(selection_size))[0:BATCH_SIZE]
+    for i in range(BATCH_SIZE):
+        sum += np.dot(feats[i], targets[i] - np.dot(feats[i], beta))
 
-        Y_tt = np.array(self.target_history[idx])[selection_mask]
-        feats = np.array(self.feat_history[idx])[selection_mask]
-        RHS = np.sum(np.sum(feats * (Y_tt[:, None] - feats * self.betas[idx]), axis=1))
-        self.betas[idx] = self.betas[idx] + (ALPHA / BATCH_SIZE) * RHS
-
-    else:
-        Y_tt = np.array(self.target_history[idx])
-        feats = np.array(self.feat_history[idx])
-        RHS = np.sum(np.sum(feats * (Y_tt[:, None] - feats * self.betas[idx]), axis=1))
-        self.betas[idx] = self.betas[idx] + (ALPHA / BATCH_SIZE) * RHS
+    self.betas[idx] += (ALPHA / BATCH_SIZE) * sum
+    # print("self_betas: ", self.betas[idx])
 
 
 def setup_training(self):
@@ -73,17 +81,21 @@ def game_events_occurred(
                 reward_from_events(self, events),
             )
         )
-        feat = state_to_features(old_game_state)
+        # feat = state_to_features(old_game_state)
+        # Y_tt = TD_target_func(self)
+        idx = A_TO_NUM[self.transitions[-1].action]
+        # self.target_history.append(idx, Y_tt)
+        # self.feat_history.append(idx, feat)
 
-        Y_tt = TD_target_respones(self, 1)
-        idx = A_TO_NUM[self_action]
+        # if self.feat_history.get_storage_size(idx) > BATCH_SIZE:
+        #     print("update")
+        #     gradient_update(self, idx)
 
-        self.target_history[A_TO_NUM[self_action]].append(Y_tt)
-        self.feat_history[idx].append(feat)
-        self.logger.info(f"self.target_history: {self.target_history}")
-        self.logger.info(f"self.feat_history: {self.feat_history}")
-
-        gradient_update(self, idx)
+        # self.logger.info(f"self.transitions: {self.transitions}")
+        self.logger.info(f"self.target_history: {self.target_history.get_storage()}")
+        # self.logger.info(f"self.feat_history: {self.feat_history.get_storage()}")
+        self.logger.info(f"self.betas: {self.betas}")
+        immediate_q_update(self, idx)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -106,7 +118,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 1,
+        e.COIN_COLLECTED: 2,
         e.INVALID_ACTION: -1
         # e.KILLED_OPPONENT: 2,
         # PLACEHOLDER_EVENT: -0.1,  # idea: the custom event is bad
@@ -115,5 +127,4 @@ def reward_from_events(self, events: List[str]) -> int:
     for event in events:
         if event in game_rewards:
             reward_sum += game_rewards[event]
-    self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum

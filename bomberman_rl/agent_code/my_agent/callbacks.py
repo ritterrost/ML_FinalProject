@@ -6,11 +6,42 @@ import random
 import numpy as np
 
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "WAIT"]
-SIGHT = 2
+SIGHT = 1
 BOMBS_FEAT_SIZE = 12
 COIN_COUNT = 50
 A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 EPSILON = 0.9
+BATCH_SIZE = 10
+BUFFER_SIZE = 200
+FEAT_SIZE = 9
+
+
+class Buffer:
+    def __init__(self):
+        self.storage = [[], [], [], [], [], []]
+
+    def append(self, idx, val):
+        self.storage[idx].append(val)
+        if len(self.storage[idx]) > BUFFER_SIZE:
+            del self.storage[idx][0]
+        # print("Buffer: ", self.storage)
+
+    def get_by_list(self, idx, list):
+        return np.array(self.storage[idx])[list]
+
+    def get_by_idx(self, idx):
+        return np.array(self.storage[idx])
+
+    def get_storage(self):
+        return self.storage
+
+    def get_storage_size(self, idx):
+        return len(self.storage[idx])
+
+    def get_batch(self, idx):
+        selection_size = self.get_storage_size(idx)
+        selection_mask = np.random.permutation(np.arange(selection_size))[0:BATCH_SIZE]
+        return self.get_by_list(idx, selection_mask)
 
 
 def policy(q_res):
@@ -70,17 +101,20 @@ def state_to_features(game_state):
     feature_vec = np.append(feature_vec, score)
     feature_vec = np.append(feature_vec, bombs_left)
 
-    return feature_vec
+    new_vec = np.concatenate((coins_feat[0:5], rel_field))
+    print(new_vec)
+
+    return new_vec
 
 
 def setup(self):
 
     self.betas = [[], [], [], [], [], []]
-    self.feat_history = [[], [], [], [], [], []]
-    self.target_history = [[], [], [], [], [], []]
+    self.feat_history = Buffer()
+    self.target_history = Buffer()
 
-    self.betas = [np.ones(148) for _ in enumerate(self.betas)]
-    self.Q_pred = 1
+    self.betas = [np.random.random(FEAT_SIZE) for _ in enumerate(self.betas)]
+    self.Q_pred = 0
 
     if self.train or not os.path.isfile("my-saved-model.pt"):
         # self.logger.info("Setting up model from scratch.")
@@ -89,14 +123,13 @@ def setup(self):
     else:
         # self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
-            self.model = pickle.load(file)
+            self.betas = pickle.load(file)
 
 
 def act(self, game_state: dict) -> str:
-
     feat = state_to_features(game_state)
     self.Q_pred = Q_func(self, feat)
+    # print("self.Q_pred: ", self.Q_pred)
+    # print("self.betas: ", self.betas)
     a = policy(self.Q_pred)
-
-    self.logger.info(f"action a in act: {a}")
     return ACTIONS[a]
