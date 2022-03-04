@@ -1,4 +1,6 @@
 from time import sleep
+
+from scipy.fft import next_fast_len
 from agent_code.my_agent.callbacks import A_TO_NUM, Q_func
 from collections import namedtuple, deque
 import pickle
@@ -34,8 +36,8 @@ def immediate_q_update(self, idx):
 
 def TD_target_func(self):
     transition = self.transitions[-1]
-    # next_q_value = Q_func(self, transition.next_state)
-    return transition.reward + GAMMA * np.max(self.Q_pred)
+    next_q_value = Q_func(self, transition.next_state)
+    return transition.reward + GAMMA * np.max(next_q_value)
 
 
 def gradient_update(self, idx):
@@ -49,7 +51,14 @@ def gradient_update(self, idx):
     beta = self.betas[idx]
 
     for i in range(BATCH_SIZE):
-        sum += np.dot(feats[i], targets[i] - np.dot(feats[i], beta))
+        # print("beta.shape: ", beta.shape)
+        # print("feats[i].shape: ", feats[i].shape)
+        # print("targets[i]: ", targets[i])
+        print(
+            "targets[i] - np.dot(feats[i], beta)", targets[i] - np.dot(feats[i], beta)
+        )
+        np.dot(feats[i], beta)
+        sum += np.dot(feats[i], (targets[i] - np.dot(feats[i], beta)))
 
     self.betas[idx] += (ALPHA / BATCH_SIZE) * sum
     # print("self_betas: ", self.betas[idx])
@@ -66,6 +75,7 @@ def game_events_occurred(
     new_game_state: dict,
     events: List[str],
 ):
+    logging = True
 
     # Idea: Add your own events to hand out rewards
     if ...:
@@ -81,21 +91,23 @@ def game_events_occurred(
                 reward_from_events(self, events),
             )
         )
-        # feat = state_to_features(old_game_state)
-        # Y_tt = TD_target_func(self)
+        feat = state_to_features(old_game_state)
+        Y_tt = TD_target_func(self)
         idx = A_TO_NUM[self.transitions[-1].action]
-        # self.target_history.append(idx, Y_tt)
-        # self.feat_history.append(idx, feat)
+        self.target_history.append(idx, Y_tt)
+        self.feat_history.append(idx, feat)
 
-        # if self.feat_history.get_storage_size(idx) > BATCH_SIZE:
-        #     print("update")
-        #     gradient_update(self, idx)
-
-        # self.logger.info(f"self.transitions: {self.transitions}")
-        self.logger.info(f"self.target_history: {self.target_history.get_storage()}")
-        # self.logger.info(f"self.feat_history: {self.feat_history.get_storage()}")
-        self.logger.info(f"self.betas: {self.betas}")
-        immediate_q_update(self, idx)
+        if self.feat_history.get_storage_size(idx) > BATCH_SIZE:
+            print("update")
+            gradient_update(self, idx)
+        if logging:
+            # self.logger.info(f"self.transitions: {self.transitions}")
+            self.logger.info(
+                f"self.target_history: {self.target_history.get_storage()}"
+            )
+            # self.logger.info(f"self.feat_history: {self.feat_history.get_storage()}")
+            self.logger.info(f"self.betas: {self.betas}")
+            # immediate_q_update(self, idx)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

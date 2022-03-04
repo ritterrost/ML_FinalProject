@@ -13,7 +13,7 @@ A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 EPSILON = 0.9
 BATCH_SIZE = 10
 BUFFER_SIZE = 200
-FEAT_SIZE = 9
+FEAT_SIZE = 104
 
 
 class Buffer:
@@ -56,8 +56,7 @@ def Q_func(self, feat):
     result = []
     for beta in self.betas:
         result.append(np.dot(feat, beta))
-    # self.logger.info(f"Q_func result: {result}")
-
+    self.logger.info(f"Q_func result: {result}")
     return result
 
 
@@ -101,8 +100,8 @@ def state_to_features(game_state):
     feature_vec = np.append(feature_vec, score)
     feature_vec = np.append(feature_vec, bombs_left)
 
-    new_vec = np.concatenate((coins_feat[0:5], rel_field))
-    print(new_vec)
+    new_vec = np.concatenate((coins_feat, rel_field))
+    # print(new_vec)
 
     return new_vec
 
