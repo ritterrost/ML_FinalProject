@@ -31,21 +31,70 @@ WALKED_FROM_BOMB = 'WALKED_FROM_BOMB'
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 ACTIONS_TO_VECTOR = dict(zip(ACTIONS, np.array([[0,-1], [1,0], [0,1], [-1,0], [0,0], [0,0]])))
+#VECTOR_TO_ACTIONS = {v: k for k, v in ACTIONS_TO_VECTOR.items()}
+
+O2 = {
+      'e': np.array([[ 1, 0],
+                     [ 0, 1]]),
+      'pi/2': np.array([[ 0,-1],
+                        [ 1, 0]]),
+      'pi': np.array([[-1, 0],
+                      [ 0,-1]]),
+      '3pi/2': np.array([[ 0, 1],
+                         [-1, 0]]),
+      'sigma_x': np.array([[ 1, 0],
+                           [ 0,-1]]),
+      'sigma_y': np.array([[-1, 0],
+                           [ 0, 1]]),
+      'sigma_d1': np.array([[ 0, 1],
+                            [ 1, 0]]),
+      'sigma_d2': np.array([[ 0,-1],
+                            [-1, 0]])
+      }
+
+O2_func = {
+    'e': lambda m: m,
+    'pi/2': np.rot90,
+#    'pi': np.rot180,
+#    '3pi/2': np.rot270,
+    'sigma_x': np.flipud,
+    'sigma_y': np.fliplr,
+    'sigma_d1': lambda m: np.rot90(np.fliplr(m)),
+    'sigma_d2': lambda m: np.rot90(np.flipud(m))
+    }
+
+origin = np.array([8,8])
+
+
+def symmetry(game_state):
+    if game_state is None:
+        return None
+    states = {}
+    for g in O2.keys():
+        sym_state = game_state.copy()
+        sym_state['field'] = O2_func[g](sym_state['field'])
+        sym_state['explosion_map'] = O2_func[g](sym_state['explosion_map'])
+        sym_state['self'][3] = (sym_state['self'][3] - origin) @ O2[g].T + origin
+        for i, other in enumerate(sym_state['bombs']):
+            sym_state['others'][i][3] = (other[0] - origin) @ O2[g].T + origin
+        for i, bomb in enumerate(sym_state['bombs']):
+            sym_state['bombs'][i][0] = (bomb[0] - origin) @ O2[g].T + origin
+        
+        
 
 
 def response(self, new_game_state, reward):
     return reward + GAMMA * np.max(Qs(self, new_game_state))
 
     
-def gradient_descent(self, random_state=1337):
-    rng = np.random.default_rng(random_state)
+def gradient_descent(self):
     for i, a in enumerate(ACTIONS):
         action_mask = self.self_actions==a
         action_length = int(np.sum(action_mask))
         if action_length==0:
             self.logger.debug(f"No gradient descent possible for {a}")
             continue
-        idx = rng.choice(np.arange(action_length), BATCH_SIZE)
+        idx = np.random.choice(np.arange(action_length), BATCH_SIZE)
         
         Psi = self.old_game_states[action_mask][idx]
         Y = self.responses[action_mask][idx]
