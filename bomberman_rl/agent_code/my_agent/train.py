@@ -5,6 +5,7 @@ from agent_code.my_agent.callbacks import A_TO_NUM, Q_func
 from collections import namedtuple, deque
 import pickle
 from typing import List
+from agent_code.tpl_agent.callbacks import ACTIONS
 import events as e
 from agent_code.my_agent.callbacks import state_to_features, BATCH_SIZE
 import numpy as np
@@ -40,7 +41,7 @@ def TD_target_func(self):
     return transition.reward + GAMMA * np.max(next_q_value)
 
 
-def gradient_update(self, idx):
+def step_gradient_update(self, idx):
     selection_mask = np.random.permutation(np.arange(BATCH_SIZE))[0:BATCH_SIZE]
     # print("selection mask: ", selection_mask)
     targets = self.target_history.get_by_list(idx, selection_mask)
@@ -61,7 +62,31 @@ def gradient_update(self, idx):
         sum += np.dot(feats[i], (targets[i] - np.dot(feats[i], beta)))
 
     self.betas[idx] += (ALPHA / BATCH_SIZE) * sum
+    self.betas[idx] += self.betas[idx]
     # print("self_betas: ", self.betas[idx])
+
+
+def round_gradient_update(self):
+    for i, act in enumerate(ACTIONS):
+        selection_mask = np.random.permutation(np.arange(BATCH_SIZE))[0:BATCH_SIZE]
+        targets = self.target_history.get_by_list(i, selection_mask)
+        feats = self.feat_history.get_by_list(i, selection_mask)
+        sum = 0
+        beta = self.betas[i]
+
+        for j in range(BATCH_SIZE):
+            # print("beta.shape: ", beta.shape)
+            # print("feats[i].shape: ", feats[i].shape)
+            # print("targets[i]: ", targets[i])
+            # print(
+            #     "targets[i] - np.dot(feats[i], beta)",
+            #     targets[i] - np.dot(feats[i], beta),
+            # )
+            np.dot(feats[j], beta)
+            sum += np.dot(feats[j], (targets[j] - np.dot(feats[j], beta)))
+
+        self.betas[i] += (ALPHA / BATCH_SIZE) * sum
+        self.betas[i] += self.betas[i]
 
 
 def setup_training(self):
@@ -97,9 +122,9 @@ def game_events_occurred(
         self.target_history.append(idx, Y_tt)
         self.feat_history.append(idx, feat)
 
-        if self.feat_history.get_storage_size(idx) > BATCH_SIZE:
-            print("update")
-            gradient_update(self, idx)
+        # if self.feat_history.get_storage_size(idx) > BATCH_SIZE:
+        #     print("update")
+        #     gradient_update(self, idx)
         if logging:
             # self.logger.info(f"self.transitions: {self.transitions}")
             self.logger.info(
@@ -122,6 +147,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
             reward_from_events(self, events),
         )
     )
+
+    round_gradient_update(self)
 
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
