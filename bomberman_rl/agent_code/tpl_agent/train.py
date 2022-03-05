@@ -5,7 +5,7 @@ from typing import List
 import numpy as np
 
 import events as e
-from .callbacks import psi, Qs
+from .callbacks import psi, Qs, L, N_BOMBS, N_COINS, closest_coins
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -16,10 +16,10 @@ TRANSITION_HISTORY_SIZE = 5000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 GAMMA = .5
 ALPHA = 1
-BATCH_SIZE = 5
-INITIAL_TEMP = 100
+BATCH_SIZE = 10
+INITIAL_TEMP = 50
 FINAL_TEMP = 1
-N_ROUNDS = 1000
+N_ROUNDS = 10000
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
@@ -55,8 +55,8 @@ O2 = {
 O2_func = {
     'e': lambda m: m,
     'pi/2': np.rot90,
-#    'pi': np.rot180,
-#    '3pi/2': np.rot270,
+    'pi': lambda m: np.rot90(np.rot90(m)),
+    '3pi/2': lambda m: np.rot90(np.rot90(np.rot90(m))),
     'sigma_x': np.flipud,
     'sigma_y': np.fliplr,
     'sigma_d1': lambda m: np.rot90(np.fliplr(m)),
@@ -84,6 +84,7 @@ def symmetry(game_state):
 
 
 def response(self, new_game_state, reward):
+#    self.logger.debug(f"new game state in response: {new_game_state}")
     return reward + GAMMA * np.max(Qs(self, new_game_state))
 
     
@@ -95,11 +96,16 @@ def gradient_descent(self):
             self.logger.debug(f"No gradient descent possible for {a}")
             continue
         idx = np.random.choice(np.arange(action_length), BATCH_SIZE)
-        
+ 
+#        self.logger.debug(f"old game state: {self.old_game_states[action_mask][idx]}")
         Psi = self.old_game_states[action_mask][idx]
-        Y = self.responses[action_mask][idx]
+#        self.logger.debug(f"new game state in gradient descent method for action {a} {self.new_game_states[idx]}")
+        Y = np.array([response(self, s, r) for s, r in zip(self.new_game_states[idx], self.rewards[idx])])
+#        self.logger.debug(f"For action {a}: Y={Y}, Psi={Psi}")
         new_beta = self.betas[i] + ALPHA / BATCH_SIZE * np.sum(Psi * (Y - np.dot(Psi, self.betas[i]))[:,None], axis=0)
         self.betas[i] = new_beta / np.linalg.norm(new_beta)
+#    self.logger.debug(f"betas after gradient descent {self.betas}")
+    pass
 
 
 def setup_training(self):
@@ -115,9 +121,10 @@ def setup_training(self):
     self.rho = INITIAL_TEMP
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.counter = 0
-    self.old_game_states = np.empty((TRANSITION_HISTORY_SIZE, psi(self, None, True)[0]))
+    self.old_game_states = np.zeros((TRANSITION_HISTORY_SIZE, L))
+    self.new_game_states = np.zeros_like(self.old_game_states)
     self.self_actions = np.empty(TRANSITION_HISTORY_SIZE).astype(str)
-    self.responses = np.empty(TRANSITION_HISTORY_SIZE)
+    self.rewards = np.empty(TRANSITION_HISTORY_SIZE)
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -143,9 +150,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if not old_game_state is None:
         old_pos = old_game_state['self'][3]
         new_pos = new_game_state['self'][3]
-        l, l_env, l_exp, l_b, l_c = psi(self, None, give_length=True)
         for i, bomb in enumerate(old_game_state['bombs']):
-            if i>=int(l_b/2):
+            if i>=N_BOMBS:
                 break
             old_dist = np.linalg.norm(np.array(bomb[0])-old_pos, ord=1)
             if old_dist<=3:
@@ -153,24 +159,26 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                     events.append(WALKED_FROM_BOMB)
                 else:
                     events.append(WALKED_TO_BOMB)
-        if not e.COIN_FOUND in events:
-            for i, coin in old_game_state['coins']:
-                if i>=int(l_c/2):
-                    break
-                if np.linalg.norm(np.array(coin)-old_pos, ord=1)>np.linalg.norm(np.array(coin)-new_pos, ord=1):
-                    events.append(WALKED_TO_COIN)
-                else:
-                    events.append(WALKED_FROM_COIN)
+        if not e.COIN_COLLECTED in events:
+            # find closest coins
+            _, idx, old_dist = closest_coins(old_pos, old_game_state['coins'], verbose=True)
+            _, new_idx, new_dist = closest_coins(new_pos, np.array(new_game_state['coins'])[idx], verbose=True)
+            potential = np.sum((new_dist - old_dist[new_idx])**2)            
+            if potential<0:
+                events.append(WALKED_TO_COIN)
+            else:
+                events.append(WALKED_FROM_COIN)
 
-    # state_to_features is defined in callbacks.py
-    reward = reward_from_events(self, events)
-    red_game_state = psi(self, old_game_state)
-    i = np.random.randint(TRANSITION_HISTORY_SIZE)
-#    self.transitions.append(Transition(red_game_state, self_action, psi(self, new_game_state), reward))
-    if not old_game_state is None:
-        self.old_game_states[i] = red_game_state
-        self.self_actions[i] = self_action
-        self.responses[i] = response(self, new_game_state, reward)
+    i = self.counter
+#    self.transitions.append(Transition(psi(self, old_game_state), self_action, psi(self, new_game_state), reward))
+    self.old_game_states[i] = psi(self, old_game_state)
+#    self.logger.debug(f"old game states after move {self.old_game_states[i]}")
+    self.new_game_states[i] = psi(self, new_game_state)
+#    self.logger.debug(f"new game state added after recording: {self.new_game_states[i]}")
+    self.self_actions[i] = self_action
+    self.rewards[i] = reward_from_events(self, events)
+    self.counter = (self.counter + 1) % TRANSITION_HISTORY_SIZE
+
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -187,15 +195,17 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    reward = reward_from_events(self, events)
-    red_game_state = psi(self, last_game_state)
-    i = np.random.randint(TRANSITION_HISTORY_SIZE)
+    i = self.counter
 #    self.transitions.append(Transition(red_game_state, last_action, None, reward))
-    self.old_game_states[i] = red_game_state
+    self.old_game_states[i] = psi(self, last_game_state)
+    self.new_game_states[i] = psi(self, None)
+#    self.logger.debug(f"new game states after finishing game: {self.new_game_states[:i]}")
     self.self_actions[i] = last_action
-    self.responses[i] = reward
+    self.rewards[i] = reward_from_events(self, events)
+    self.counter = (self.counter + 1) % TRANSITION_HISTORY_SIZE
 
     gradient_descent(self)
+#    self.rho = 5
     self.rho *= (FINAL_TEMP/INITIAL_TEMP)**(1/N_ROUNDS)
     
     # Store the model
@@ -213,15 +223,17 @@ def reward_from_events(self, events: List[str]) -> int:
     """
     game_rewards = {
         e.COIN_COLLECTED: 1,
- #       e.KILLED_OPPONENT: 1,
-  #      e.KILLED_SELF: 0,
-        e.GOT_KILLED: -1,
-        e.INVALID_ACTION: -1,
-    #    e.CRATE_DESTROYED: .5,
-     #   WALKED_TO_COIN: .1,
-      #  WALKED_FROM_COIN: -.1,
+#        e.KILLED_OPPONENT: 1,
+#        e.KILLED_SELF: 0,          
+        e.GOT_KILLED: -5,
+        e.INVALID_ACTION: -self.rho/100,
+#        e.CRATE_DESTROYED: .5,
+#        WALKED_TO_COIN: .2,
+#        WALKED_FROM_COIN: -.1,
         WALKED_TO_BOMB: -1,
-        WALKED_FROM_BOMB: .1
+        WALKED_FROM_BOMB: .1,
+        e.MOVED_RIGHT: 1,
+        e.MOVED_UP: 1
     }
     reward_sum = 0
     for event in events:

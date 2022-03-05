@@ -22,7 +22,7 @@ SCENARIOS = {
 MAX_AGENTS = 4
 
 # Round properties
-MAX_STEPS = 400
+MAX_STEPS = 100
 
 # GUI properties
 GRID_SIZE = 30
@@ -58,5 +58,5 @@ INPUT_MAP = {
 # Logging levels
 LOG_GAME = logging.INFO
 LOG_AGENT_WRAPPER = logging.INFO
-LOG_AGENT_CODE = logging.DEBUG
+LOG_AGENT_CODE = logging.INFO
 LOG_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
