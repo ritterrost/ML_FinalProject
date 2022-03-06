@@ -5,11 +5,11 @@ import random
 import numpy as np
 
 
-ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'WAIT']
 
 # Hyper-parameters
 # Dimension reduction
-N_BOMBS = 1
+N_BOMBS = 0
 N_COINS = 1
 
 
@@ -29,7 +29,7 @@ def setup(self):
     """
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up beta and rho from scratch.")
-        self.betas = np.random.random((6,L))
+        self.betas = np.random.random((6,L)) * 2 - 1
         self.rho = 1  # initial rho can be low as initialisation is random
         with open("my-saved-model.pt", "wb") as file:
             pickle.dump(dict(betas=self.betas, rho=self.rho), file)
@@ -43,8 +43,8 @@ def setup(self):
 
 
 #ENV = np.array([[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], [1,-1], [1,0], [1,1]])
-EXPLOSION = np.array([[-1,0], [1,0], [0,-1], [0,1]])
-ENV = EXPLOSION.copy()
+EXPLOSION = np.array([]) #np.array([[-1,0], [1,0], [0,-1], [0,1]])
+ENV = np.array([[-1,0], [1,0], [0,-1], [0,1]])
 L_ENV, L_EXP, L_B, L_C = len(ENV), len(EXPLOSION), N_BOMBS*2 + 1, N_COINS*2
 L = L_ENV + L_EXP + L_B + L_C
 
@@ -111,8 +111,9 @@ def act(self, game_state: dict) -> str:
     softmax = np.exp(Q_hats/self.rho)
     softmax[np.isinf(softmax)] = 1e4
 #    self.logger.debug(f"softmax = {softmax}")
-#    self.logger.debug(f"Choose action {a}")
-    return np.random.choice(ACTIONS, p=softmax/np.sum(softmax))
+    a = np.random.choice(ACTIONS, p=softmax/np.sum(softmax))
+    self.logger.debug(f"Choose action {a}")
+    return a
 
 
 def state_to_features(game_state: dict) -> np.array:
