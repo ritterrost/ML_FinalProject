@@ -4,7 +4,7 @@ from pathlib import Path
 from fallbacks import pygame
 
 # Game properties
-COLS = 11
+COLS = 17
 ROWS = COLS
 SCENARIOS = {
     "coin-heaven": {
@@ -22,7 +22,7 @@ SCENARIOS = {
 MAX_AGENTS = 4
 
 # Round properties
-MAX_STEPS = 100
+MAX_STEPS = 400
 
 # GUI properties
 GRID_SIZE = 30

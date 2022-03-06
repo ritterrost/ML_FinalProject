@@ -10,44 +10,44 @@ import numpy as np
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 1000000  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 10  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 COIN_K = 1
-#ALPHA = 0.1
-BATCH_SIZE = 10000
-L = 1
-SAMPLE_SIZE = 10
-GAMMA = 0.1
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
-WALKED_TOWARDS_CLOSEST_COIN = "WALKED_TOWARDS_CLOSEST_COIN"
-WALKED_AWAY_FROM_CLOSEST_COIN = "WALKED_AWAY_FROM_CLOSEST_COIN"
+ALPHA = 0.1
+BATCH_SIZE = 10
+L = 1
 
-#for convenience
-A_IDX = np.arange(0,6,1,dtype='int')
-FEAT_DIM = 6
-
-def TD_target_respones(self, gamma = GAMMA):
+def TD_target_respones(self, gamma=0.1):
     transition = self.transitions.pop()
+
     # Q function of next value
-    next_q_value = Q_func(self, feat=transition.next_state)
+    # next_feat = state_to_features(transition.next_state)
+    next_q_value = Q_func(self, transition.next_state)
 
     return transition.reward + gamma * np.max(next_q_value)
 
 
-def forest_update(self):
-    #select random batch of transitions and updates all actions at once
+def gradient_update(self, idx):
 
-    for idx in A_IDX:
-        #batch for action dneoted by idx
-        if len(self.feat_history[idx])>0:
-            selection_mask = np.random.choice(np.arange(0,len(self.feat_history[idx]), dtype='int'), size = BATCH_SIZE)
-            X = np.array(self.feat_history[idx])[selection_mask]
-            y = np.array(self.target_history[idx])[selection_mask]
-            self.forests[idx].fit(np.array(X),np.array(y))
-        else:
-            continue
+    if len(self.feat_history[idx]) >= BATCH_SIZE:
+        selection_size = len(self.target_history[idx])
+        selection_mask = np.random.permutation(np.arange(selection_size))[0:BATCH_SIZE]
+
+        Y_tt = np.array(self.target_history[idx])[selection_mask]
+        feats = np.array(self.feat_history[idx])[selection_mask]
+        RHS = np.sum(np.sum(feats * (Y_tt[:, None] - feats * self.betas[idx]), axis=1))
+        self.betas[idx] = self.betas[idx] + (ALPHA / BATCH_SIZE) * RHS
+
+    else:
+        Y_tt = np.array(self.target_history[idx])
+        feats = np.array(self.feat_history[idx])
+        RHS = np.sum(np.sum(feats * (Y_tt[:, None] - feats * self.betas[idx]), axis=1))
+        self.betas[idx] = self.betas[idx] + (ALPHA / len(self.feat_history[idx])) * RHS
+
+    self.betas=[np.array(beta)/np.linalg.norm(np.array(self.betas), ord=2) for beta in self.betas]
 
 
 def setup_training(self):
@@ -65,12 +65,6 @@ def game_events_occurred(
     # Idea: Add your own events to hand out rewards
     if ...:
         events.append(PLACEHOLDER_EVENT)
-    if old_game_state is not None:
-        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == 1:
-            events.append(WALKED_TOWARDS_CLOSEST_COIN)
-        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == -1:
-            events.append(WALKED_AWAY_FROM_CLOSEST_COIN)
-        
 
     # state_to_features is defined in callbacks.py
     if old_game_state is not None:
@@ -85,13 +79,15 @@ def game_events_occurred(
         )
         feat = state_to_features(old_game_state)
 
-        Y_tt = TD_target_respones(self)
+        Y_tt = TD_target_respones(self, 0.1)
         idx = A_TO_NUM[self_action]
 
-        self.target_history[idx].append(Y_tt)
+        self.target_history[A_TO_NUM[self_action]].append(Y_tt)
         self.feat_history[idx].append(feat)
         #self.logger.info(f"self.target_history: {self.target_history}")
         #self.logger.info(f"self.feat_history: {self.feat_history}")
+
+        gradient_update(self, idx)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -107,14 +103,9 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         )
     )
 
-    #update forests of all actions
-    forest_update(self)
-
-        
-
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
-        pickle.dump(self.forests, file)
+        pickle.dump(self.betas, file)
 
 def total_rewards(self, events, old_game_state, new_game_state):
     rewards = [reward_from_events(self, events)]
@@ -123,15 +114,12 @@ def total_rewards(self, events, old_game_state, new_game_state):
 
 def reward_from_events(self, events: List[str]):
     game_rewards = {
-        e.COIN_COLLECTED: 10,
-        WALKED_TOWARDS_CLOSEST_COIN: 1,
-        WALKED_AWAY_FROM_CLOSEST_COIN: -1,
-        #e.WAITED: -2,
-        #e.INVALID_ACTION: -2,
-        e.KILLED_SELF: -10,
+        e.COIN_COLLECTED: 100,
+        e.INVALID_ACTION: -100,
+        e.KILLED_SELF: -100,
         #e.SURVIVED_ROUND: 100,
         e.CRATE_DESTROYED: 2,
-        #e.BOMB_DROPPED: 10
+        e.BOMB_DROPPED: 10
         # e.KILLED_OPPONENT: 2,
         # PLACEHOLDER_EVENT: -0.1,  # idea: the custom event is bad
     }
@@ -143,9 +131,8 @@ def reward_from_events(self, events: List[str]):
     return reward_sum
 
 def potential_reward(self, old_game_state, new_game_state):
-    #old_pot = coin_potential(self, old_game_state)#+bomb_potential(self, old_game_state)
-    #new_pot = coin_potential(self, new_game_state)#+bomb_potential(self, new_game_state)
-    old_pot, new_pot = bomb_potential(self, old_game_state), bomb_potential(self, new_game_state)
+    old_pot = coin_potential(self, old_game_state)+bomb_potential(self, old_game_state)
+    new_pot = coin_potential(self, new_game_state)+bomb_potential(self, old_game_state)
     return old_pot-new_pot #reward when player gets closer to coin(s)
 
 def coin_potential_func(pos):
@@ -153,7 +140,7 @@ def coin_potential_func(pos):
     if (x,y) == (0,0):
         return 0
     #return (np.abs(x)**L+np.abs(y)**L)**(1/L)/20
-    return np.linalg.norm(pos, ord=L)/50
+    return np.linalg.norm(pos, ord=L)**2/10
 
 def coin_potential(self, game_state):
     _, score, bombs_left, (x, y) = game_state["self"]
@@ -206,27 +193,3 @@ def bomb_potential(self, game_state):
         return 0
     else:
         return np.sum(pot)/non_zero
-
-#for custom events
-def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
-    old_pos, new_pos = old_game_state["self"][-1], new_game_state["self"][-1]
-    #position of coins
-    old_coins, new_coins = old_game_state["coins"], new_game_state["coins"]
-    if len(old_coins)==0:
-        return 0
-    elif len(new_coins)==0:
-        return 1
-    else:
-        old_coin_xy, new_coin_xy = np.array([[coin_x,coin_y] for (coin_x,coin_y) in old_coins]), np.array([[coin_x,coin_y] for (coin_x,coin_y) in new_coins])
-        #old closest coin
-        old_closest_index = np.argsort(np.linalg.norm(old_coin_xy-old_pos, ord=L, axis=1))[0]
-        coin_pos = old_coin_xy[old_closest_index]
-        #check if there still is a coin at position of old closest coin
-        if e.COIN_COLLECTED in events:
-            return 1
-        if coin_pos in new_coin_xy:
-            #give reward if walked in direction, punish if walked away
-            diff = np.linalg.norm(coin_pos-new_pos, ord=L)-np.linalg.norm(coin_pos-old_pos, ord=L)
-            return np.sign(-diff)
-        else:
-            return 0
