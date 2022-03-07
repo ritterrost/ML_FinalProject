@@ -1,8 +1,4 @@
-def psi(game_state: dict):
-    n_env = 
-
 def setup(self):
-    
     pass
 
 
