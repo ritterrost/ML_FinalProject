@@ -9,7 +9,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'WAIT']
 
 # Hyper-parameters
 # Dimension reduction
-N_BOMBS = 0
+N_BOMBS = 1
 N_COINS = 1
 
 
@@ -43,7 +43,7 @@ def setup(self):
 
 
 #ENV = np.array([[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], [1,-1], [1,0], [1,1]])
-EXPLOSION = np.array([]) #np.array([[-1,0], [1,0], [0,-1], [0,1]])
+EXPLOSION = np.array([[-1,0], [1,0], [0,-1], [0,1]])
 ENV = np.array([[-1,0], [1,0], [0,-1], [0,1]])
 L_ENV, L_EXP, L_B, L_C = len(ENV), len(EXPLOSION), N_BOMBS*2 + 1, N_COINS*2
 L = L_ENV + L_EXP + L_B + L_C

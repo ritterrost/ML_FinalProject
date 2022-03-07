@@ -14,7 +14,7 @@ Transition = namedtuple('Transition',
 # Hyper parameters -- DO modify
 TRANSITION_HISTORY_SIZE = 8 * 5000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-GAMMA = .5
+GAMMA = .1
 ALPHA = 1
 BATCH_SIZE = 50
 INITIAL_TEMP = 50
