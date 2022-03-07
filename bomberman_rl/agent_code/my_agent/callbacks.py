@@ -1,134 +1,136 @@
-from collections import deque
 import os
 import pickle
-import random
-
 import numpy as np
 
-ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "WAIT"]
-SIGHT = 1
-BOMBS_FEAT_SIZE = 12
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.multioutput import MultiOutputRegressor
+from lightgbm import LGBMRegressor
+
+
+ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
 COIN_COUNT = 50
-A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
-EPSILON = 0.9
-BATCH_SIZE = 10
-BUFFER_SIZE = 200
-FEAT_SIZE = 104
+N_COINS = 1
+FEAT_SIZE = 4
+
+# from the blog post
+EXPLORATION_MAX = 1.0
+EXPLORATION_MIN = 1.0
+EXPLORATION_DECAY = 0.96
 
 
-class Buffer:
-    def __init__(self):
-        self.storage = [[], [], [], [], [], []]
-
-    def append(self, idx, val):
-        self.storage[idx].append(val)
-        if len(self.storage[idx]) > BUFFER_SIZE:
-            del self.storage[idx][0]
-        # print("Buffer: ", self.storage)
-
-    def get_by_list(self, idx, list):
-        return np.array(self.storage[idx])[list]
-
-    def get_by_idx(self, idx):
-        return np.array(self.storage[idx])
-
-    def get_storage(self):
-        return self.storage
-
-    def get_storage_size(self, idx):
-        return len(self.storage[idx])
-
-    def get_batch(self, idx):
-        selection_size = self.get_storage_size(idx)
-        selection_mask = np.random.permutation(np.arange(selection_size))[0:BATCH_SIZE]
-        return self.get_by_list(idx, selection_mask)
-
-
-def policy(q_res):
-    r = np.random.random(1)
-    if r > EPSILON:
-        return np.random.randint(6)
+def policy(self, Q_values):
+    if np.random.rand() < self.exploration_rate or not self.isFit:
+        return np.random.randint(4)
     else:
-        return np.argmax(q_res)
+        return np.argmax(Q_values)
 
 
-def Q_func(self, feat):
-    result = []
-    for beta in self.betas:
-        result.append(np.dot(feat, beta))
-    self.logger.info(f"Q_func result: {result}")
-    return result
+def tabular_Q_func(self, features):
+    Q_values = []
 
+    for Qs in self.Q_dicts:
+        if hash(str(features)) in Qs.keys():
+            Q_values.append(Qs[hash(str(features))])
+        else:
+            Qs[hash(str(features))] = 0
+            Q_values.append(0)
+    return Q_values
 
-def state_to_features(game_state):
-    # Gather information about the game state
-    arena = game_state["field"]
-    explosion_map = game_state["explosion_map"]
-    _, score, bombs_left, (x, y) = game_state["self"]
-    bombs = game_state["bombs"]
-    # not used yet
-    others = [xy for (n, s, b, xy) in game_state["others"]]
-
-    # turn bombs into constant sized feature
-    bomb_xys = [[bomb_x, bomb_y, bomb_t] for ((bomb_x, bomb_y), bomb_t) in bombs]
-    bomb_xys = np.array(bomb_xys).flatten()
-    num_missing_bombs = BOMBS_FEAT_SIZE - bomb_xys.size
-    bomb_feat = np.concatenate((bomb_xys, np.zeros(num_missing_bombs)))
-
-    # turn coins into constant sized feature
-    coins = game_state["coins"]
-    coins = np.array(coins).flatten()
-    num_missing_coins = 2 * COIN_COUNT - coins.size
-    coins_feat = np.concatenate((coins, np.zeros(num_missing_coins)))
-
-    # construct field feature
-    xx, yy = np.clip(
-        np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1
-    )
-    rel_field = arena[yy, xx].flatten().astype("int32")
-
-    # construct explosion map feature
-    rel_exp_map = explosion_map[yy, xx].flatten().astype("int32")
-
-    # turn bombs left into int32 numpy array with
-    bombs_left = (np.asarray(bombs_left)).astype("int32")
-
-    # construct feature vector
-    feature_vec = np.concatenate(
-        (rel_field, rel_exp_map, np.array([x, y]), bomb_feat, coins_feat)
-    )
-    feature_vec = np.append(feature_vec, score)
-    feature_vec = np.append(feature_vec, bombs_left)
-
-    new_vec = np.concatenate((coins_feat, rel_field))
-    # print(new_vec)
-
-    return new_vec
+    
+def lr_Q_func(self, feat):
+    q_values = []
+    for beta in self.weights:
+        q_values.append(np.dot(feat, beta))
+    return q_values
 
 
 def setup(self):
+    """
+    Setup your code. This is called once when loading each agent.
+    Make sure that you prepare everything such that act(...) can be called.
 
-    self.betas = [[], [], [], [], [], []]
-    self.feat_history = Buffer()
-    self.target_history = Buffer()
+    When in training mode, the separate `setup_training` in train.py is called
+    after this method. This separation allows you to share your trained agent
+    with other students, without revealing your training code.
 
-    self.betas = [np.random.random(FEAT_SIZE) for _ in enumerate(self.betas)]
-    self.Q_pred = 0
+    In this example, our model is a set of probabilities over actions
+    that are is independent of the game state.
+
+    :param self: This object is passed to all callbacks and you can set arbitrary values.
+    """
+
 
     if self.train or not os.path.isfile("my-saved-model.pt"):
-        # self.logger.info("Setting up model from scratch.")
-        weights = np.random.rand(len(ACTIONS))
-        self.model = weights / weights.sum()
+
+        self.Q_values = []
+
+        # for tabular Q learning
+        self.Q_dicts = [{}, {}, {}, {}, {}, {}]
+
+        weights = [[], [], [], [], [], []]
+        self.weights = [np.random.random(FEAT_SIZE) for _ in enumerate(weights)]
+        self.model = MultiOutputRegressor(LGBMRegressor(n_estimators=6, n_jobs=1))
+        self.isFit = False
+
+        self.exploration_rate = EXPLORATION_MAX
     else:
-        # self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
-            self.betas = pickle.load(file)
+            self.model = pickle.load(file)
 
 
 def act(self, game_state: dict) -> str:
-    feat = state_to_features(game_state)
-    self.Q_pred = Q_func(self, feat)
-    # print("self.Q_pred: ", self.Q_pred)
-    # print("self.betas: ", self.betas)
-    a = policy(self.Q_pred)
-    return ACTIONS[a]
+    """
+    Your agent should parse the input, think, and take a decision.
+    When not in training mode, the maximum execution time for this method is 0.5s.
+
+    :param self: The same object that is passed to all of your callbacks.
+    :param game_state: The dictionary that describes everything on the board.
+    :return: The action to take as a string.
+    """
+    features = state_to_features(game_state)
+    Q_values = lr_Q_func(self, features)
+    self.Q_values = Q_values
+    # print('features: ', features)
+    # print('Q_values: ', Q_values)
+    # print('weights: ', self.weights)
+
+    return ACTIONS[policy(self, Q_values)]
+
+
+def state_to_features(game_state: dict) -> np.array:
+    """
+    *This is not a required function, but an idea to structure your code.*
+
+    Converts the game state to the input of your model, i.e.
+    a feature vector.
+
+    You can find out about the state of the game environment via game_state,
+    which is a dictionary. Consult 'get_state_for_agent' in environment.py to see
+    what it contains.
+
+    :param game_state:  A dictionary describing the current game board.
+    :return: np.array
+    """
+    # This is the dict before the game begins and after it ends
+    if game_state is None:
+        return None
+
+    # self feat
+    _, score, bombs_left, (me_x, me_y) = game_state["self"]
+    pos = np.asarray((me_y, me_x))
+
+    # coins feat
+    coins = np.asarray(game_state["coins"])
+
+    # for all coins
+    # coins = np.array(coins).flatten()
+    # num_missing_coins = 2 * COIN_COUNT - coins.size
+    # coins_feat = np.concatenate((coins, np.zeros(num_missing_coins)))
+
+    # for single closest coin
+    closest_coin_idx = np.argmin(
+        np.linalg.norm(pos - coins, axis=1)
+    )
+
+    return np.concatenate([pos, coins[closest_coin_idx]])
