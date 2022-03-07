@@ -20,12 +20,19 @@ N_ESTIMATORS = 10
 SIGHT = 1
 COIN_K = 1
 RANGE = 6
-EPSILON_TRAIN = 0.1
+EPSILON_TRAIN = 0.2
 EPSILON = 0.01
+RHO_TRAIN = 1
+RHO = 0.1
+
+def policy_alt(self):
+    prob = np.exp(self.Q_pred/self.rho)
+    prob = prob/np.sum(prob)
+    return np.random.choice(np.arange(0,6,1), p=prob.reshape(6))
 
 def policy(self):
     r = np.random.random(1)
-    prob = np.array([0.2,0.2,0.2,0.2,0,0.2]) #exclude bombs for now
+    prob = np.array([0.2,0.2,0.2,0.2,0,0.2]) #include bombs for now
     if r < self.epsilon:
         return np.random.choice(np.arange(0,6,1), p=prob)
     else:
@@ -77,17 +84,20 @@ def state_to_features(game_state):
     coin_xy_rel = np.array([[coin_x-x,coin_y-y] for (coin_x,coin_y) in coins])
     if len(coins)<COIN_K:
         if len(coins)==1:
-            coins_feat = np.concatenate((np.sign(coin_xy_rel), np.zeros((COIN_K-len(coins),2))))
+            coins_feat = np.concatenate((coin_xy_rel, np.zeros((COIN_K-len(coins),2))))
         if len(coins)==0:
             NO_COINS = True
             coins_feat = np.zeros((COIN_K-len(coins),2)).flatten()
         else:
             sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1, ord=1))
-            coins_feat = np.concatenate((np.sign(coin_xy_rel[sorted_index]), np.zeros((COIN_K-len(coins),2))))
+            coins_feat = np.concatenate((coin_xy_rel[sorted_index], np.zeros((COIN_K-len(coins),2))))
     else:
         sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1))[:COIN_K]
-        coins_feat = np.sign(coin_xy_rel[sorted_index])
-    
+        coins_feat = coin_xy_rel[sorted_index]
+        
+        #mask = np.nonzero(coins_feat)
+        #coins_feat[mask] = 1/coins_feat[mask]
+        coins_feat = np.sign(coins_feat)
     #exclude directions with walls
     if len(coins)>0:
         if wall_above:
@@ -120,11 +130,10 @@ def state_to_features(game_state):
         np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1
     )
 
-    ##take absolute value so walls and crates are treated equally
-    #rel_obstacle_map = np.abs(arena[xx, yy]).flatten().astype("int32")
-
     #relative field
     rel_field = np.array(arena[xx,yy]).flatten().astype("int32")
+
+    #get position of nearest crates
 
     ##construct map of coins in SIGHT
     #rel_coin_map = np.zeros((len(yy), len(xx)))
@@ -166,8 +175,10 @@ def setup(self):
     self.Q_pred = np.ones(FEAT_DIM)
     if self.train:
         self.epsilon = EPSILON_TRAIN
+        self.rho = RHO_TRAIN
     else:  
         self.epsilon = EPSILON
+        self.rho = RHO
     if self.train or not os.path.isfile("my-saved-model.pt"):
         # self.logger.info("Setting up model from scratch.")
         #initial forest, create random model of right dimension and make fit

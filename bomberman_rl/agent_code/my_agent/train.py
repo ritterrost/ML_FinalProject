@@ -10,7 +10,7 @@ import numpy as np
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 1000000  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 10  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 COIN_K = 1
 #ALPHA = 0.1
@@ -60,11 +60,9 @@ def game_events_occurred(
     self_action: str,
     new_game_state: dict,
     events: List[str],
-):
+    ):
 
-    # Idea: Add your own events to hand out rewards
-    if ...:
-        events.append(PLACEHOLDER_EVENT)
+    # custom events
     if old_game_state is not None:
         if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == 1:
             events.append(WALKED_TOWARDS_CLOSEST_COIN)
@@ -110,8 +108,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     #update forests of all actions
     forest_update(self)
 
-        
-
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.forests, file)
@@ -127,11 +123,11 @@ def reward_from_events(self, events: List[str]):
         WALKED_TOWARDS_CLOSEST_COIN: 1,
         WALKED_AWAY_FROM_CLOSEST_COIN: -1,
         #e.WAITED: -2,
-        #e.INVALID_ACTION: -2,
-        e.KILLED_SELF: -10,
+        #e.INVALID_ACTION: -5,
+        e.KILLED_SELF: -100,
         #e.SURVIVED_ROUND: 100,
         e.CRATE_DESTROYED: 2,
-        #e.BOMB_DROPPED: 10
+        #e.BOMB_DROPPED: 2
         # e.KILLED_OPPONENT: 2,
         # PLACEHOLDER_EVENT: -0.1,  # idea: the custom event is bad
     }
@@ -195,7 +191,6 @@ def bomb_potential_func(pos):
     else:
         return 0
     
-
 def bomb_potential(self, game_state):
     _, score, bombs_left, (x, y) = game_state["self"]
     bombs = game_state["bombs"]
@@ -210,6 +205,14 @@ def bomb_potential(self, game_state):
 #for custom events
 def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
     old_pos, new_pos = old_game_state["self"][-1], new_game_state["self"][-1]
+    #field
+    old_arena = old_game_state["field"]
+    #surrounding walls
+    wall_above = old_arena[old_pos[0], old_pos[1]+1] == 1
+    wall_below = old_arena[old_pos[0], old_pos[1]-1] == 1
+    wall_right = old_arena[old_pos[0+1], old_pos[1]] == 1
+    wall_left = old_arena[old_pos[0-1], old_pos[1]] == 1
+
     #position of coins
     old_coins, new_coins = old_game_state["coins"], new_game_state["coins"]
     if len(old_coins)==0:
@@ -221,12 +224,18 @@ def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
         #old closest coin
         old_closest_index = np.argsort(np.linalg.norm(old_coin_xy-old_pos, ord=L, axis=1))[0]
         coin_pos = old_coin_xy[old_closest_index]
+        #direction of coin relative to old position
+        coin_direction = coin_pos - old_pos
+        #exclude case where player has to move laterally
+        lateral_movement_necessary = (np.all(coin_direction == [0,1]) and wall_above) or (np.all(coin_direction == [0,-1]) and wall_below)\
+                                   or (np.all(coin_direction == [1,0]) and wall_right) or (np.all(coin_direction == [-1,0]) and wall_left)
+        if lateral_movement_necessary: return 1
         #check if there still is a coin at position of old closest coin
         if e.COIN_COLLECTED in events:
             return 1
         if coin_pos in new_coin_xy:
             #give reward if walked in direction, punish if walked away
             diff = np.linalg.norm(coin_pos-new_pos, ord=L)-np.linalg.norm(coin_pos-old_pos, ord=L)
-            return np.sign(-diff)
+            return np.sign(-diff) #+/-1 after 1 step
         else:
             return 0
