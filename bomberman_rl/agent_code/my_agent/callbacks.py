@@ -16,10 +16,10 @@ FEAT_DIM = 10 + BOMBS_FEAT_SIZE
 
 #hyperparameters
 MAX_DEPTH = 10
-N_ESTIMATORS = 10
+N_ESTIMATORS = 20
 SIGHT = 1
 COIN_K = 1
-RANGE = 6
+#RANGE = 6
 EPSILON_TRAIN = 0.2
 EPSILON = 0.01
 RHO_TRAIN = 1
@@ -56,10 +56,10 @@ def state_to_features(game_state):
     others = [xy for (n, s, b, xy) in game_state["others"]]
 
     #surrounding walls
-    wall_above = arena[x, y+1] == 1
-    wall_below = arena[x, y-1] == 1
-    wall_right = arena[x+1, y] == 1
-    wall_left = arena[x-1, y] == 1
+    wall_above = arena[x, y+1] == -1
+    wall_below = arena[x, y-1] == -1
+    wall_right = arena[x+1, y] == -1
+    wall_left = arena[x-1, y] == -1
 
     # turn bombs into constant sized feature
     # only consider bombs in 'range'
@@ -97,21 +97,21 @@ def state_to_features(game_state):
         
         #mask = np.nonzero(coins_feat)
         #coins_feat[mask] = 1/coins_feat[mask]
-        coins_feat = np.sign(coins_feat)
+    coins_feat = np.sign(coins_feat)
     #exclude directions with walls
     if len(coins)>0:
         if wall_above:
-            mask = coins_feat[1,:] == 1
-            coins_feat[1, mask] = 0
+            mask = coins_feat[:,1] == 1
+            coins_feat[mask,1] = 0
         if wall_below:
-            mask = coins_feat[1,:] == -1
-            coins_feat[1, mask] = 0
+            mask = coins_feat[:,1] == -1
+            coins_feat[mask,1] = 0
         if wall_right:
-            mask = coins_feat[0,:] == 1
-            coins_feat[0, mask] = 0
+            mask = coins_feat[:,0] == 1
+            coins_feat[mask,0] = 0
         if wall_left:
-            mask = coins_feat[0,:] == -1
-            coins_feat[0, mask] = 0
+            mask = coins_feat[:,0] == -1
+            coins_feat[mask,0] = 0
 
     if not NO_COINS and np.all(coins_feat == 0):
         #choose random direction without wall

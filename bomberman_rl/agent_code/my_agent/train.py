@@ -10,7 +10,7 @@ import numpy as np
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 10  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 1  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 COIN_K = 1
 #ALPHA = 0.1
@@ -23,13 +23,14 @@ GAMMA = 0.1
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 WALKED_TOWARDS_CLOSEST_COIN = "WALKED_TOWARDS_CLOSEST_COIN"
 WALKED_AWAY_FROM_CLOSEST_COIN = "WALKED_AWAY_FROM_CLOSEST_COIN"
+LATERAL_MOVEMENT = "LATERAL_MOVEMENT"
 
 #for convenience
 A_IDX = np.arange(0,6,1,dtype='int')
 FEAT_DIM = 6
 
 def TD_target_respones(self, gamma = GAMMA):
-    transition = self.transitions.pop()
+    transition = self.transitions[-1]
     # Q function of next value
     next_q_value = Q_func(self, feat=transition.next_state)
 
@@ -68,7 +69,8 @@ def game_events_occurred(
             events.append(WALKED_TOWARDS_CLOSEST_COIN)
         if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == -1:
             events.append(WALKED_AWAY_FROM_CLOSEST_COIN)
-        
+        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == 0.5:
+            events.append(LATERAL_MOVEMENT)
 
     # state_to_features is defined in callbacks.py
     if old_game_state is not None:
@@ -114,7 +116,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def total_rewards(self, events, old_game_state, new_game_state):
     rewards = [reward_from_events(self, events)]
-    #rewards.append(potential_reward(self, old_game_state, new_game_state))
     return sum(rewards)
 
 def reward_from_events(self, events: List[str]):
@@ -122,6 +123,7 @@ def reward_from_events(self, events: List[str]):
         e.COIN_COLLECTED: 10,
         WALKED_TOWARDS_CLOSEST_COIN: 1,
         WALKED_AWAY_FROM_CLOSEST_COIN: -1,
+        LATERAL_MOVEMENT: 0,
         #e.WAITED: -2,
         #e.INVALID_ACTION: -5,
         e.KILLED_SELF: -100,
@@ -138,87 +140,23 @@ def reward_from_events(self, events: List[str]):
     #self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
 
-def potential_reward(self, old_game_state, new_game_state):
-    #old_pot = coin_potential(self, old_game_state)#+bomb_potential(self, old_game_state)
-    #new_pot = coin_potential(self, new_game_state)#+bomb_potential(self, new_game_state)
-    old_pot, new_pot = bomb_potential(self, old_game_state), bomb_potential(self, new_game_state)
-    return old_pot-new_pot #reward when player gets closer to coin(s)
-
-def coin_potential_func(pos):
-    x,y = pos
-    if (x,y) == (0,0):
-        return 0
-    #return (np.abs(x)**L+np.abs(y)**L)**(1/L)/20
-    return np.linalg.norm(pos, ord=L)/50
-
-def coin_potential(self, game_state):
-    _, score, bombs_left, (x, y) = game_state["self"]
-    coins = game_state["coins"]
-    coin_xy_rel = np.array([[coin_x-x,coin_y-y] for (coin_x,coin_y) in coins])
-    if len(coin_xy_rel) == 0:
-        return 0
-    if coin_xy_rel.ndim == 1:
-        return coin_potential_func(coin_xy_rel)
-    if len(coins)<COIN_K:
-        sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1))
-        coins_feat = np.concatenate((coin_xy_rel[sorted_index], np.zeros((COIN_K-len(coins),2))))
-    else:
-        sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1))[:COIN_K]
-        coins_feat = coin_xy_rel[sorted_index]
-    pot = [coin_potential_func(pos) for pos in coins_feat]
-    non_zero = np.sum(pot!=0)
-    if non_zero == 0:
-        return 0
-    else:
-        return np.sum(pot)/non_zero
-
-def bomb_range(t):
-    #range of explosion as function of remaining time
-    t_inv = 5-t #goes from 1 to 4
-    b_range=[[0,0]]
-    for i in range(t_inv)[0:]:
-        b_range.append([0,i])
-        b_range.append([0,-i])
-        b_range.append([i,0])
-        b_range.append([-i,0])
-    return b_range
-
-def bomb_potential_func(pos):
-    bomb_x,bomb_y,bomb_t = pos
-    for position in bomb_range(bomb_t):
-        if bomb_x == position[0] and bomb_y == position[1]:
-            return -8*(5-bomb_t) #penalty if player is in range for a bomb
-    else:
-        return 0
-    
-def bomb_potential(self, game_state):
-    _, score, bombs_left, (x, y) = game_state["self"]
-    bombs = game_state["bombs"]
-    bomb_xy_rel = [[bomb_x-x, bomb_y-y, bomb_t] for ((bomb_x, bomb_y), bomb_t) in bombs]
-    pot = [bomb_potential_func(pos) for pos in bomb_xy_rel]
-    non_zero = np.sum(pot!=0)
-    if non_zero == 0:
-        return 0
-    else:
-        return np.sum(pot)/non_zero
-
 #for custom events
 def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
     old_pos, new_pos = old_game_state["self"][-1], new_game_state["self"][-1]
     #field
     old_arena = old_game_state["field"]
     #surrounding walls
-    wall_above = old_arena[old_pos[0], old_pos[1]+1] == 1
-    wall_below = old_arena[old_pos[0], old_pos[1]-1] == 1
-    wall_right = old_arena[old_pos[0+1], old_pos[1]] == 1
-    wall_left = old_arena[old_pos[0-1], old_pos[1]] == 1
+    wall_above = old_arena[old_pos[0], old_pos[1]+1] == -1
+    wall_below = old_arena[old_pos[0], old_pos[1]-1] == -1
+    wall_right = old_arena[old_pos[0]+1, old_pos[1]] == -1
+    wall_left = old_arena[old_pos[0]-1, old_pos[1]] == -1
 
     #position of coins
     old_coins, new_coins = old_game_state["coins"], new_game_state["coins"]
     if len(old_coins)==0:
         return 0
     elif len(new_coins)==0:
-        return 1
+        return 0
     else:
         old_coin_xy, new_coin_xy = np.array([[coin_x,coin_y] for (coin_x,coin_y) in old_coins]), np.array([[coin_x,coin_y] for (coin_x,coin_y) in new_coins])
         #old closest coin
@@ -229,7 +167,7 @@ def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
         #exclude case where player has to move laterally
         lateral_movement_necessary = (np.all(coin_direction == [0,1]) and wall_above) or (np.all(coin_direction == [0,-1]) and wall_below)\
                                    or (np.all(coin_direction == [1,0]) and wall_right) or (np.all(coin_direction == [-1,0]) and wall_left)
-        if lateral_movement_necessary: return 1
+        if lateral_movement_necessary: return 0.5
         #check if there still is a coin at position of old closest coin
         if e.COIN_COLLECTED in events:
             return 1
