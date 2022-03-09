@@ -12,13 +12,12 @@ ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
 A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 A_IDX = np.arange(0,6,1,dtype='int')
 BOMBS_FEAT_SIZE = 12
-FEAT_DIM = 10 + BOMBS_FEAT_SIZE
+FEAT_DIM = 14 + BOMBS_FEAT_SIZE
 
 #hyperparameters
 MAX_DEPTH = 10
 N_ESTIMATORS = 20
 SIGHT = 1
-COIN_K = 1
 #RANGE = 6
 EPSILON_TRAIN = 0.2
 EPSILON = 0.01
@@ -45,7 +44,7 @@ def Q_func(self, feat):
     return np.array([regr[idx].predict([feat]) for idx in A_IDX])
 
 
-def state_to_features(game_state):
+def state_to_features(self, game_state):
     # Gather information about the game state
     arena = game_state["field"]
     explosion_map = game_state["explosion_map"]
@@ -54,6 +53,7 @@ def state_to_features(game_state):
     bombs = game_state["bombs"]
     # not used yet
     others = [xy for (n, s, b, xy) in game_state["others"]]
+    player_pos = np.array([x,y])
 
     #surrounding walls
     wall_above = arena[x, y+1] == -1
@@ -73,58 +73,39 @@ def state_to_features(game_state):
     else:
         bomb_feat = np.zeros(BOMBS_FEAT_SIZE)
 
-    ## turn coins into constant sized feature
-    #coins = np.array(coins).flatten()
-    #num_missing_coins = 2 * COIN_COUNT - coins.size
-    #coins_feat = np.concatenate((coins, np.zeros(num_missing_coins)))
+    "Coin, Barrel, Player features"
+    "only give direction of closest coin/barrel/player (for simplicity)"
+    "If path is blocked by wall give random lateral direction"
 
-    #Alternatively only include the nearest K coins
-    #only give direction of coin (for simplicity)
-    NO_COINS = False
-    coin_xy_rel = np.array([[coin_x-x,coin_y-y] for (coin_x,coin_y) in coins])
-    if len(coins)<COIN_K:
-        if len(coins)==1:
-            coins_feat = np.concatenate((coin_xy_rel, np.zeros((COIN_K-len(coins),2))))
-        if len(coins)==0:
-            NO_COINS = True
-            coins_feat = np.zeros((COIN_K-len(coins),2)).flatten()
-        else:
-            sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1, ord=1))
-            coins_feat = np.concatenate((coin_xy_rel[sorted_index], np.zeros((COIN_K-len(coins),2))))
-    else:
-        sorted_index = np.argsort(np.linalg.norm(coin_xy_rel, axis=1))[:COIN_K]
-        coins_feat = coin_xy_rel[sorted_index]
-        
-        #mask = np.nonzero(coins_feat)
-        #coins_feat[mask] = 1/coins_feat[mask]
-    coins_feat = np.sign(coins_feat)
+    coins_feat = np.sign(self.closest_coin-player_pos)
+    barrel_feat = np.sign(self.closest_barrel-player_pos)
+    enemy_feat = np.sign(self.closest_player-player_pos)
+
     #exclude directions with walls
-    if len(coins)>0:
-        if wall_above:
-            mask = coins_feat[:,1] == 1
-            coins_feat[mask,1] = 0
-        if wall_below:
-            mask = coins_feat[:,1] == -1
-            coins_feat[mask,1] = 0
-        if wall_right:
-            mask = coins_feat[:,0] == 1
-            coins_feat[mask,0] = 0
-        if wall_left:
-            mask = coins_feat[:,0] == -1
-            coins_feat[mask,0] = 0
+    for feature in [coins_feat, barrel_feat, enemy_feat]:
+        if len(feature)>0:
+            if wall_above and feature[1] == 1:
+                feature[1] = 0
+            if wall_below and feature[1] == -1:
+                feature[1] = 0
+            if wall_right and feature[0] == 1:
+                feature[0] = 0
+            if wall_left and feature[0] == -1:
+                feature[0] = 0
 
-    if not NO_COINS and np.all(coins_feat == 0):
-        #choose random direction without wall
-        available_directions = []
-        if not wall_above: available_directions.append([0,1])
-        if not wall_below: available_directions.append([0,-1])
-        if not wall_right: available_directions.append([1,0])
-        if not wall_left: available_directions.append([-1,0])
-        if len(available_directions)>0:
-            chosen_direction = np.random.randint(len(available_directions))
-            coins_feat[0,0], coins_feat[0,1] = np.array(available_directions)[chosen_direction, 0],np.array(available_directions)[chosen_direction, 1]
+        if len(feature)>0 and np.all(feature == 0):
+            #choose random direction without wall
+            available_directions = []
+            if not wall_above: available_directions.append([0,1])
+            if not wall_below: available_directions.append([0,-1])
+            if not wall_right: available_directions.append([1,0])
+            if not wall_left: available_directions.append([-1,0])
+            if len(available_directions)>0:
+                chosen_direction = np.random.randint(len(available_directions))
+                feature[0], feature[1] = np.array(available_directions)[chosen_direction, 0],np.array(available_directions)[chosen_direction, 1]
             
-    coins_feat=coins_feat.flatten()
+        feature = feature.flatten()
+
     # construct field feature
     xx, yy = np.clip(
         np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1
@@ -133,35 +114,16 @@ def state_to_features(game_state):
     #relative field
     rel_field = np.array(arena[xx,yy]).flatten().astype("int32")
 
-    #get position of nearest crates
-
-    ##construct map of coins in SIGHT
-    #rel_coin_map = np.zeros((len(yy), len(xx)))
-    #coin_xy = [[coin_x,coin_y] for (coin_x,coin_y) in coins]
-    #for coin in coin_xy:
-    #    for xc in xx:
-    #        for yc in yy:
-    #            if (xc,yc) == coin:
-    #                rel_coin_map[xc, yc] = 1
-    #rel_coin_map = rel_coin_map.flatten().astype("int32")
-    ##construct map of crates likewise
-    #rel_crate_map = arena[xx, yy]>0
-    #rel_crate_map = rel_crate_map.flatten().astype("int32")
-
     # construct explosion map feature
     rel_exp_map = explosion_map[xx, yy].flatten().astype("int32")
 
-    # turn bombs left into int32 numpy array with
-    bombs_left = (np.asarray(bombs_left)).astype("int32")
+    ## turn bombs left into int32 numpy array with
+    #bombs_left = (np.asarray(bombs_left)).astype("int32")
 
     # construct feature vector
     feature_vec = np.concatenate(
-    #    (rel_field, rel_exp_map, np.array([x, y]), bomb_feat, coins_feat)
-        (rel_field, coins_feat, rel_exp_map, bomb_feat)
-    #    (rel_obstacle_map, rel_coin_map, rel_crate_map)
+        (rel_field, coins_feat, barrel_feat, enemy_feat, rel_exp_map, bomb_feat)
     )
-    #feature_vec = np.append(feature_vec, score)
-    #feature_vec = np.append(feature_vec, bombs_left)
 
     return feature_vec
 
@@ -171,6 +133,9 @@ def setup(self):
     self.forests = [RandomForestRegressor(n_estimators = N_ESTIMATORS, max_depth = MAX_DEPTH, bootstrap = True) for a in ACTIONS]
     self.feat_history = [[], [], [], [], [], []]
     self.target_history = [[], [], [], [], [], []]
+    self.closest_coin = 'None'
+    self.closest_barrel = 'None'
+    self.closest_player = 'None'
 
     self.Q_pred = np.ones(FEAT_DIM)
     if self.train:
@@ -193,9 +158,51 @@ def setup(self):
 
 def act(self, game_state: dict):
 
-    feat = state_to_features(game_state)
+    find(self, game_state)
+    feat = state_to_features(self, game_state)
     self.Q_pred = Q_func(self, feat)
     a = policy(self)
 
     #self.logger.info(f"action a in act: {a}")
     return ACTIONS[a]
+
+
+def find(self, game_state):
+    "finds closest coin, barrel and player to target and saves their position"
+    arena = game_state["field"]
+    explosion_map = game_state["explosion_map"]
+    coins = game_state["coins"]
+    _, score, bombs_left, (x, y) = game_state["self"]
+    others = np.array([xy for (n, s, b, xy) in game_state["others"]])
+    player_pos = np.array([x,y])
+
+    if game_state is not None:
+        self.old_closest_coin = self.closest_coin
+        self.old_closest_barrel = self.closest_barrel
+        self.old_closest_player = self.closest_player
+
+    #coins
+    coin_xy = np.array([[coin_x,coin_y] for (coin_x,coin_y) in coins])
+    if len(coins)>0:
+        closest_index = np.argsort(np.linalg.norm(coin_xy - player_pos, axis=1))[0]
+        self.closest_coin = coin_xy[closest_index]
+
+    else:
+        self.closest_coin = player_pos
+
+    #barrels
+    barrel_xy = np.argwhere(arena>0)
+    if len(barrel_xy)>0:
+        closest_index = np.argsort(np.linalg.norm(barrel_xy - player_pos, axis=1))[0]
+        self.closest_barrel = barrel_xy[closest_index]
+
+    else:
+        self.closest_barrel = player_pos
+
+    #players
+    if len(others)>0:
+        closest_index = np.argsort(np.linalg.norm(others - player_pos, axis=1))[0]
+        self.closest_player = others[closest_index]
+
+    else:
+        self.closest_player = player_pos
