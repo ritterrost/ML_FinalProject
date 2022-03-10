@@ -9,8 +9,6 @@ from pathlib import Path
 from threading import Event
 from time import time
 from typing import List, Tuple, Dict
-# for vietnam
-from io import BytesIO
 
 import numpy as np
 
@@ -178,7 +176,7 @@ class GenericWorld:
         self.evaluate_explosions()
         self.send_game_events()
 
-        # for vietnam add random bomb with 
+        # VIETNAM for vietnam add random bomb with 
         if self.args.scenario == 'vietnam':
             if len(self.active_agents) != 0:
                 r = np.random.rand()

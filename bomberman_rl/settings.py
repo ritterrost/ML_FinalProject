@@ -11,6 +11,7 @@ SCENARIOS = {
         "CRATE_DENSITY": 0,
         "COIN_COUNT": 20
     },
+    # VIETNAM
     "vietnam":{
         "CRATE_DENSITY": 0,
         "COIN_COUNT":20,
