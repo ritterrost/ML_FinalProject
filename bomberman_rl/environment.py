@@ -1,6 +1,7 @@
 import json
 import logging
 import pickle
+from random import random
 import subprocess
 from collections import namedtuple
 from datetime import datetime
@@ -8,6 +9,8 @@ from pathlib import Path
 from threading import Event
 from time import time
 from typing import List, Tuple, Dict
+# for vietnam
+from io import BytesIO
 
 import numpy as np
 
@@ -174,6 +177,16 @@ class GenericWorld:
         self.update_bombs()
         self.evaluate_explosions()
         self.send_game_events()
+
+        # for vietnam add random bomb with 
+        if self.args.scenario == 'vietnam':
+            if len(self.active_agents) != 0:
+                r = np.random.rand()
+                if r < s.SCENARIOS['vietnam']['BOMB_PROB']:
+                    pos = np.random.choice(np.arange(1, 16, 2), 2)
+                    a = self.active_agents[0]
+                    sprite = pygame.image.load(f'agent_code/{a.code_name}/vietnam_bomb.png')
+                    self.bombs.append(Bomb(pos, a, s.BOMB_TIMER, s.BOMB_POWER, sprite))
 
         if self.time_to_stop():
             self.end_round()
