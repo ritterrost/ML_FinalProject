@@ -1,3 +1,7 @@
+import collections
+from operator import ne
+from attr import field
+
 """
   Input: game_state: {
     'round': int,
@@ -20,9 +24,10 @@ from agent_code.my_agent import callbacks
 COIN_K = 1
 SIGHT = 1
 BOMBS_FEAT_SIZE = 12
+BR = 3
 
 
-def state_to_features_coin_collector(game_state):
+def state_to_features_alex(game_state):
     # Gather information about the game state
     arena = game_state["field"]
     explosion_map = game_state["explosion_map"]
@@ -111,3 +116,117 @@ def state_to_features_coin_collector(game_state):
     # construct feature vector
     feature_vec = np.concatenate((rel_field, coins_feat, rel_exp_map))
     return feature_vec
+
+
+def state_to_features_bfs_2(game_state):
+    arena = game_state["field"]
+    others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])
+    coins = np.asarray(game_state["coins"])
+    bombs = game_state["bombs"]
+    bombs_xy = np.asarray([[bomb_x, bomb_y] for ((bomb_x, bomb_y), _) in bombs])
+    explosion_map = game_state["explosion_map"]
+    _, _, _, (x, y) = game_state["self"]
+    pos_self = np.asarray((x, y))
+
+    xx, yy = np.clip(np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1)
+    rel_field = np.array(arena[xx, yy]).flatten().astype("int32")
+
+    # overlay arena
+    if others.shape[0] != 0:
+        arena[others[:, 1], others[:, 0]] = 2
+
+    if coins.shape[0] != 0:
+        arena[coins[:, 1], coins[:, 0]] = 3
+
+    # if bombs_xy.shape[0] != 0:
+    #     arena[bombs_xy[:, 1], bombs_xy[:, 0]] = 4
+
+    explosion_array = np.argwhere(explosion_map == 1)
+    if explosion_array.shape[0] != 0:
+        arena[explosion_array[:, 1], explosion_array[:, 0]] = 5
+
+    is_in_danger_zone = False
+    if bombs_xy.shape[0] != 0:
+        for b in bombs_xy:
+            b_xx, b_yy = np.clip(
+                np.mgrid[b[0] - BR : b[0] + BR, b[1] - BR : b[1] + BR],
+                0,
+                arena.shape[0] - 1,
+            )
+            arena[b_xx, b_yy] = 4
+            # danger_zone.append(np.asarray([b_xx, b_yy]))
+
+    next_step = None
+    if coins.shape[0] != 0:
+        next_coord = bfs_cc(arena, pos_self, "coin")
+        if next_coord is not None:
+            next_step = pos_self - next_coord
+
+    elif 1 in arena:
+        next_coord = bfs_cc(arena, pos_self, "crate")
+        if next_coord is not None:
+            next_step = pos_self - next_coord
+
+    if is_in_danger_zone:
+        next_coord = bfs_cc(arena, pos_self, "free")
+
+    is_in_danger_zone = np.asarray(is_in_danger_zone).astype(int)
+    feature_vec = np.append(np.concatenate((rel_field, next_step)), is_in_danger_zone)
+    return feature_vec
+
+
+def state_to_features_bfs_cc(game_state):
+    arena = game_state["field"]
+    coins = np.asarray(game_state["coins"])
+    _, _, _, (x, y) = game_state["self"]
+    pos_self = np.asarray((x, y))
+    arena_with_coins = arena
+
+    if len(coins) != 0:
+        arena_with_coins[coins[:, 1], coins[:, 0]] = 3
+        next_corrd = bfs_cc(arena_with_coins, pos_self, "coin")
+        next_step = pos_self - next_corrd
+    else:
+        next_step = np.zeros(2)
+
+    # construct field feature
+    xx, yy = np.clip(np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1)
+    rel_field = np.array(arena[xx, yy]).flatten().astype("int32")
+
+    feature_vec = np.concatenate((rel_field, next_step))
+    # print("next step: ", next_step)
+    return feature_vec
+
+
+def bfs_cc(grid, start, target: str):
+    target_dict = {
+        "free": 0,
+        "crate": 1,
+        "coin": 3,
+    }
+    if target == "coin":
+        block = 1
+    else:
+        block = -1
+    goal = target_dict[target]
+    queue = collections.deque([[start]])
+    seen = set(start)
+    while queue:
+        path = queue.popleft()
+        xy = path[-1]
+        x = xy[0]
+        y = xy[1]
+        if grid[y][x] == goal:
+            if len(path) > 1:
+                return path[1]
+            else:
+                None
+        for x2, y2 in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if (
+                1 <= x2 < 16
+                and 0 <= y2 < 16
+                and grid[y2][x2] not in [-1, block, 2, 4, 5]
+                and (x2, y2) not in seen
+            ):
+                queue.append(path + [(x2, y2)])
+                seen.add((x2, y2))

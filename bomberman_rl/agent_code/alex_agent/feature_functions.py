@@ -97,7 +97,9 @@ def state_to_features_coin_collector(game_state):
 
     coins_feat = coins_feat.flatten()
     # construct field feature
-    xx, yy = np.clip(np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1)
+    xx, yy = np.clip(
+        np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1
+    )
 
     # relative field
     rel_field = np.array(arena[xx, yy]).flatten().astype("int32")

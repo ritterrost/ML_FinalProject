@@ -19,7 +19,7 @@ EPSILON_TRAIN = 0.2
 EPSILON = 0.05
 RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 10
+FEAT_DIM = 7
 
 
 def policy_alt(self):
@@ -46,7 +46,9 @@ def Q_func(self, feat):
 def setup(self):
     if self.train:
         self.forests = [
-            RandomForestRegressor(n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True)
+            RandomForestRegressor(
+                n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True
+            )
             for a in ACTIONS
         ]
         self.feat_history = [[], [], [], [], [], []]
@@ -69,7 +71,7 @@ def setup(self):
 
 
 def act(self, game_state: dict):
-    feat = feature_functions.state_to_features_coin_collector(game_state)
+    feat = feature_functions.state_to_features_bfs_2(game_state)
     self.Q_pred = Q_func(self, feat)
     a = policy(self)
     # self.logger.info(f"action a in act: {a}")

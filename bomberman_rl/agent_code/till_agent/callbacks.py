@@ -37,7 +37,7 @@ def tabular_Q_func(self, features):
             Q_values.append(0)
     return Q_values
 
-    
+
 def lr_Q_func(self, feat):
     q_values = []
     for beta in self.weights:
@@ -59,7 +59,6 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-
 
     if self.train or not os.path.isfile("my-saved-model.pt"):
 
@@ -129,8 +128,6 @@ def state_to_features(game_state: dict) -> np.array:
     # coins_feat = np.concatenate((coins, np.zeros(num_missing_coins)))
 
     # for single closest coin
-    closest_coin_idx = np.argmin(
-        np.linalg.norm(pos - coins, axis=1)
-    )
+    closest_coin_idx = np.argmin(np.linalg.norm(pos - coins, axis=1))
 
     return np.concatenate([pos, coins[closest_coin_idx]])

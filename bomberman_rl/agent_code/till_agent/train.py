@@ -6,7 +6,13 @@ import pickle
 from typing import List
 from agent_code.my_agent.callbacks import tabular_Q_func
 import events as e
-from .callbacks import ACTIONS, EXPLORATION_DECAY, EXPLORATION_MIN, lr_Q_func, state_to_features
+from .callbacks import (
+    ACTIONS,
+    EXPLORATION_DECAY,
+    EXPLORATION_MIN,
+    lr_Q_func,
+    state_to_features,
+)
 
 # This is only an example!
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
@@ -34,9 +40,10 @@ def tabular_Q_update(self):
         used_Q_value + rhs
     )
 
+
 def lr_immediate_Q_update(self):
     transition = self.transitions[-1]
-    idx = A_TO_NUM[transition.action] 
+    idx = A_TO_NUM[transition.action]
     next_q_value = lr_Q_func(self, transition.next_state)
 
     Y = transition.reward + GAMMA * np.max(next_q_value)
@@ -134,24 +141,26 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     X = []
     targets = []
     for t in batch:
-        q_update = t.reward 
-        if (type(t.next_state) != None and type(t.state) != None):
-            print('next state: ', t.next_state)
-            print('state: ', t.state)
+        q_update = t.reward
+        if type(t.next_state) != None and type(t.state) != None:
+            print("next state: ", t.next_state)
+            print("state: ", t.state)
             if self.isFit:
-                q_update = (t.reward + GAMMA + np.max(self.model.predict(t.next_state.reshape)))
+                q_update = (
+                    t.reward + GAMMA + np.max(self.model.predict(t.next_state.reshape))
+                )
             else:
                 q_update = t.reward
         if self.isFit:
             q_values = self.model.predict(t.state)
         else:
-            q_values = np.zeros(len(ACTIONS)).reshape(1,-1)
-            print('q_values: ', q_values[0])
+            q_values = np.zeros(len(ACTIONS)).reshape(1, -1)
+            print("q_values: ", q_values[0])
         q_values[0][A_TO_NUM[t.action]] = q_update
 
         X.append(list(t.state))
         targets.append(q_values)
-    print('targets: ', targets)
+    print("targets: ", targets)
     self.model.fit(X, targets)
     self.isFit = True
     self.exploration_rate *= EXPLORATION_DECAY

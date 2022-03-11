@@ -47,7 +47,9 @@ def Q_func(self, feat):
 def setup(self):
     if self.train:
         self.forests = [
-            RandomForestRegressor(n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True)
+            RandomForestRegressor(
+                n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True
+            )
             for a in ACTIONS
         ]
         self.feat_history = [[], [], [], [], [], []]
