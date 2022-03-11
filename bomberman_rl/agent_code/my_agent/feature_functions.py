@@ -141,22 +141,40 @@ def state_to_features_bfs_2(game_state):
     # if bombs_xy.shape[0] != 0:
     #     arena[bombs_xy[:, 1], bombs_xy[:, 0]] = 4
 
+    is_in_danger_zone = False
+    if bombs_xy.shape[0] != 0:
+        for b in bombs_xy:
+            u_b, r_b, d_b, l_b = False, False, False, False
+            for i in range(BR+1):
+                if not u_b:
+                    if arena[b[1]-i, b[0]] != -1:
+                        arena[b[1]-i, b[0]] = 4
+                    else:
+                        u_b = True
+                if not d_b:
+                    if arena[b[1]+i, b[0]] != -1:
+                        arena[b[1]+i, b[0]] = 4
+                    else:
+                        d_b = True
+                if not l_b:
+                    if arena[b[1], b[0]-i] != -1:
+                        arena[b[1], b[0]-i] = 4
+                    else:
+                        l_b = True
+                if not r_b:
+                    if arena[b[1], b[0]+i] != -1:
+                        arena[b[1], b[0]+i] = 4
+                    else:
+                        r_b = True
+
+    if arena[pos_self[1], pos_self[0]] == 4:
+        is_in_danger_zone = True
+
     explosion_array = np.argwhere(explosion_map == 1)
     if explosion_array.shape[0] != 0:
         arena[explosion_array[:, 1], explosion_array[:, 0]] = 5
 
-    is_in_danger_zone = False
-    if bombs_xy.shape[0] != 0:
-        for b in bombs_xy:
-            b_xx, b_yy = np.clip(
-                np.mgrid[b[0] - BR : b[0] + BR, b[1] - BR : b[1] + BR],
-                0,
-                arena.shape[0] - 1,
-            )
-            arena[b_xx, b_yy] = 4
-            # danger_zone.append(np.asarray([b_xx, b_yy]))
-
-    next_step = None
+    next_step = np.array([0, 0])
     if coins.shape[0] != 0:
         next_coord = bfs_cc(arena, pos_self, "coin")
         if next_coord is not None:
@@ -168,10 +186,17 @@ def state_to_features_bfs_2(game_state):
             next_step = pos_self - next_coord
 
     if is_in_danger_zone:
+        print('in danger zone')
         next_coord = bfs_cc(arena, pos_self, "free")
+        if next_coord is not None:
+            next_step = pos_self - next_coord
+
+    print('final arena: ', arena)
+    print('bombsxy: ', bombs_xy)
+    print('next step: ', next_step)
 
     is_in_danger_zone = np.asarray(is_in_danger_zone).astype(int)
-    feature_vec = np.append(np.concatenate((rel_field, next_step)), is_in_danger_zone)
+    feature_vec = np.concatenate((rel_field, next_step))
     return feature_vec
 
 
@@ -198,13 +223,13 @@ def state_to_features_bfs_cc(game_state):
     return feature_vec
 
 
-def bfs_cc(grid, start, target: str):
+def bfs_cc(arena, start, target: str):
     target_dict = {
         "free": 0,
         "crate": 1,
         "coin": 3,
     }
-    if target == "coin":
+    if target == "coin" or target == "free":
         block = 1
     else:
         block = -1
@@ -216,7 +241,7 @@ def bfs_cc(grid, start, target: str):
         xy = path[-1]
         x = xy[0]
         y = xy[1]
-        if grid[y][x] == goal:
+        if arena[y][x] == goal:
             if len(path) > 1:
                 return path[1]
             else:
@@ -225,7 +250,7 @@ def bfs_cc(grid, start, target: str):
             if (
                 1 <= x2 < 16
                 and 0 <= y2 < 16
-                and grid[y2][x2] not in [-1, block, 2, 4, 5]
+                and arena[y2][x2] not in [-1, block, 5]
                 and (x2, y2) not in seen
             ):
                 queue.append(path + [(x2, y2)])

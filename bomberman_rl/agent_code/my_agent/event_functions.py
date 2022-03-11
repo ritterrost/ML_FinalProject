@@ -16,7 +16,7 @@ A_TO_COORD = {
 }
 
 
-def walked_towards_closest_coin(self):
+def made_suggested_move(self):
     t = self.transitions[-1]
     if t.action == "BOMB" or "WAIT":
         return 0

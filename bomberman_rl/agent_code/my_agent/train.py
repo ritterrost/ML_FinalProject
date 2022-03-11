@@ -21,7 +21,7 @@ BATCH_SIZE = 2000
 GAMMA = 0.1
 
 # Events
-WALKED_TOWARDS_CLOSEST_COIN = "WALKED_TOWARDS_CLOSEST_COIN"
+MADE_SUGGESTED_MOVE = "MADE_SUGGESTED_MOVE"
 DROP_BOMB_NEXT_TO_CRATE = "DROP_BOMB_NEXT_TO_CRATE"
 IN_DANGER_ZONE = "IN_DANGER_ZONE"
 
@@ -74,12 +74,12 @@ def game_events_occurred(
                 total_rewards(self, events, old_game_state, new_game_state),
             )
         )
-        if event_functions.walked_towards_closest_coin(self) == 1:
-            events.append(WALKED_TOWARDS_CLOSEST_COIN)
+        if event_functions.made_suggested_move(self) == 1:
+            events.append(MADE_SUGGESTED_MOVE)
         if event_functions.drop_bomb_next_to_crate(self) == 1:
             events.append(DROP_BOMB_NEXT_TO_CRATE)
-        if event_functions.in_danger_zone(self) == 1:
-            events.append(IN_DANGER_ZONE)
+        # if event_functions.in_danger_zone(self) == 1:
+        #     events.append(IN_DANGER_ZONE)
 
         feat = feature_functions.state_to_features_bfs_2(old_game_state)
         Y_tt = response_func(self)
@@ -122,17 +122,17 @@ def reward_from_events(self, events: List[str]):
     game_rewards = {
         e.COIN_COLLECTED: 5,
         e.KILLED_SELF: -2,
-        e.CRATE_DESTROYED: 2,
+        e.CRATE_DESTROYED: 5,
         e.KILLED_OPPONENT: 10,
         e.GOT_KILLED: -2,
-        WALKED_TOWARDS_CLOSEST_COIN: 1,
+        MADE_SUGGESTED_MOVE: 1,
         DROP_BOMB_NEXT_TO_CRATE: 5,
-        IN_DANGER_ZONE: -5,
+        # IN_DANGER_ZONE: -5,
 
     }
     reward_sum = 0
     for event in events:
         if event in game_rewards:
             reward_sum += game_rewards[event]
-    # self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
+    self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum

@@ -19,7 +19,7 @@ EPSILON_TRAIN = 0.2
 EPSILON = 0.05
 RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 7
+FEAT_DIM = 6
 
 
 def policy_alt(self):
