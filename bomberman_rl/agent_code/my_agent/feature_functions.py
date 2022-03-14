@@ -18,9 +18,9 @@ from agent_code.my_agent import callbacks
 
 # Feature Parameter
 COIN_K = 1
-SIGHT = 1
 BOMBS_FEAT_SIZE = 12
 
+ENV = np.array([[-1,0],[1,0],[0,-1],[0,1]]) # up, down, left, right
 
 def state_to_features_coin_collector(game_state):
     # Gather information about the game state
@@ -32,11 +32,11 @@ def state_to_features_coin_collector(game_state):
     # not used yet
     others = [xy for (n, s, b, xy) in game_state["others"]]
 
-    # surrounding walls
-    wall_above = arena[x, y + 1] == -1
-    wall_below = arena[x, y - 1] == -1
-    wall_right = arena[x + 1, y] == -1
-    wall_left = arena[x - 1, y] == -1
+    #auxilliary features
+    player_pos = np.array((x,y))
+    surrounding = tuple((player_pos + ENV).T)
+    obstacles = np.logical_or(arena[surrounding], explosion_map[surrounding])
+    wall_above, wall_below, wall_left, wall_right = obstacles
 
     # turn bombs into constant sized feature
     # only consider bombs in 'range'
@@ -96,18 +96,10 @@ def state_to_features_coin_collector(game_state):
             )
 
     coins_feat = coins_feat.flatten()
-    # construct field feature
-    xx, yy = np.clip(np.mgrid[x - SIGHT : x + SIGHT, y - SIGHT : y + SIGHT], 0, arena.shape[0] - 1)
-
-    # relative field
-    rel_field = np.array(arena[xx, yy]).flatten().astype("int32")
-
-    # construct explosion map feature
-    rel_exp_map = explosion_map[xx, yy].flatten().astype("int32")
 
     # turn bombs left into int32 numpy array with
     bombs_left = (np.asarray(bombs_left)).astype("int32")
 
     # construct feature vector
-    feature_vec = np.concatenate((rel_field, coins_feat, rel_exp_map))
+    feature_vec = np.concatenate((obstacles, coins_feat))
     return feature_vec

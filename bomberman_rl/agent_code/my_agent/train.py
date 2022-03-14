@@ -41,17 +41,19 @@ def forest_update(self):
     # select random batch of transitions and updates all actions at once
     for idx in np.arange(A_NUM):
         # batch for action denoted by idx
-        if len(self.feat_history[idx]) > 0:
+        if len(self.old_feat_history[idx]) > 0:
             selection_mask = np.random.choice(
-                np.arange(len(self.feat_history[idx])), size=BATCH_SIZE
+                np.arange(len(self.old_feat_history[idx])), size=BATCH_SIZE
             )
-            X = np.array(self.feat_history[idx])[selection_mask]
+            X = np.array(self.old_feat_history[idx])[selection_mask]
             y = np.array(self.target_history[idx])[selection_mask]
             self.forests[idx].fit(X, y)
 
 
 def setup_training(self):
-    self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.old_feat_history = [deque(maxlen=TRANSITION_HISTORY_SIZE)]*6
+    self.new_feat_history = self.old_feat_history.copy()
+    self.rewards = self.old_feat_history.copy()
 
 
 def game_events_occurred(
@@ -101,10 +103,10 @@ def game_events_occurred(
         idx = callbacks.A_TO_NUM[self_action]
 
         self.target_history[idx].append(Y_tt)
-        self.feat_history[idx].append(feat)
+        self.old_feat_history[idx].append(feat)
 
         # self.logger.info(f"self.target_history: {self.target_history}")
-        # self.logger.info(f"self.feat_history: {self.feat_history}")
+        # self.logger.info(f"self.old_feat_history: {self.old_feat_history}")
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

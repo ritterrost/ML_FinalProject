@@ -19,7 +19,7 @@ EPSILON_TRAIN = 0.2
 EPSILON = 0.05
 RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 10
+FEAT_DIM = 6
 
 
 def policy_alt(self):
@@ -49,8 +49,6 @@ def setup(self):
             RandomForestRegressor(n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True)
             for a in ACTIONS
         ]
-        self.feat_history = [[], [], [], [], [], []]
-        self.target_history = [[], [], [], [], [], []]
         self.Q_pred = np.ones(50)
         self.epsilon = EPSILON_TRAIN
         self.rho = RHO_TRAIN
