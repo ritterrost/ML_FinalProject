@@ -141,7 +141,7 @@ def reward_from_events(self, events: List[str]):
         # e.KILLED_SELF: -2,
         e.CRATE_DESTROYED: 1,
         e.KILLED_OPPONENT: 10,
-        e.GOT_KILLED: -2,
+        e.GOT_KILLED: -5,
         MADE_SUGGESTED_MOVE: 5,
         DROP_BOMB_NEXT_TO_CRATE: 1,
         # IN_DANGER_ZONE: -5,

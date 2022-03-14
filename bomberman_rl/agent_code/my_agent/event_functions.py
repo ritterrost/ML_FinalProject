@@ -16,9 +16,9 @@ A_TO_COORD = {
 }
 
 
-def made_suggested_move(state, action):
-    if (np.array(A_TO_COORD[action]) == state[0:2]).all():
-        return 1
+# def made_suggested_move(state, action):
+#     if (np.array(A_TO_COORD[action]) == state[0:2]).all():
+#         return 1
 
 
 def drop_bomb_next_to_crate(state, action):
