@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import make_regression
 
-from agent_code.my_agent import feature_functions
+from agent_code.alex_agent import feature_functions
+from agent_code.alex_agent import train
 
 # Game Parameter
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
@@ -19,7 +20,7 @@ EPSILON_TRAIN = 0.2
 EPSILON = 0.05
 RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 12
+FEAT_DIM = 10
 
 
 def policy_alt(self):
@@ -59,19 +60,19 @@ def setup(self):
     else:
         self.epsilon = EPSILON
         self.rho = RHO
-    if self.train or not os.path.isfile("my-saved-model.pt"):
+    if self.train or not os.path.isfile("alex-saved-model.pt"):
         # initial forest, create random model of right dimension and make fit
         X, y = make_regression(n_features=FEAT_DIM, random_state=0)
         for idx in A_IDX:
             self.forests[idx].fit(X, y)
     else:
         # self.logger.info("Loading model from saved state.")
-        with open("my-saved-model.pt", "rb") as file:
+        with open("alex-saved-model.pt", "rb") as file:
             self.forests = pickle.load(file)
 
 
 def act(self, game_state: dict):
-    feat = feature_functions.state_to_features_bfs_2(game_state)
+    feat = feature_functions.state_to_features_coin_collector(game_state)
     self.Q_pred = Q_func(self, feat)
     a = policy(self)
     # self.logger.info(f"action a in act: {a}")
