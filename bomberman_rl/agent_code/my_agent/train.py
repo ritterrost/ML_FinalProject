@@ -14,7 +14,7 @@ TRANSITION_HISTORY_SIZE = 2  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 COIN_K = 1
 #ALPHA = 0.1
-BATCH_SIZE = 10000
+BATCH_SIZE = 1000000
 L = 1
 SAMPLE_SIZE = 10
 GAMMA = 0.1
@@ -35,23 +35,26 @@ WALKED_TOWARDS_BOMB = "WALKED_TOWARDS_BOMB"
 A_IDX = np.arange(0,6,1,dtype='int')
 FEAT_DIM = 6
 
-def TD_target_respones(self, gamma = GAMMA):
-    transition = self.transitions[-1]
-    # Q function of next value
-    next_q_value = Q_func(self, feat=transition.next_state)
-
-    return transition.reward + gamma * np.max(next_q_value)
+#def TD_target_respones(self, gamma = GAMMA):
+#    transition = self.transitions[-1]
+#    # Q function of next value
+#    next_q_value = Q_func(self, feat=transition.next_state)
+#
+#    return transition.reward + gamma * np.max(next_q_value)
 
 
 def forest_update(self):
     #select random batch of transitions and updates all actions at once
+    ##########WE SHOULD USE LAST TREE FOR TARGET PREDICTION NOT SAVED VALUES!!!
 
     for idx in A_IDX:
-        #batch for action dneoted by idx
+        #batch for action denoted by idx
         if len(self.feat_history[idx])>0:
-            selection_mask = np.random.choice(np.arange(0,len(self.feat_history[idx]), dtype='int'), size = BATCH_SIZE)
-            X = np.array(self.feat_history[idx])[selection_mask]
-            y = np.array(self.target_history[idx])[selection_mask]
+            #selection_mask = np.random.choice(np.arange(0,len(self.feat_history[idx]), dtype='int'), size = BATCH_SIZE)
+            X = np.array(self.feat_history[idx])#[selection_mask]
+            #y = np.array(self.target_history[idx])#[selection_mask]
+            next_q_value = np.array([self.forests[i].predict(np.array(self.next_feat_history[idx])) for i in A_IDX])
+            y = np.array(self.reward_history[idx]) + GAMMA*np.max(next_q_value, axis = 0)
             self.forests[idx].fit(np.array(X),np.array(y))
         else:
             continue
@@ -71,23 +74,26 @@ def game_events_occurred(
 
     # custom events
     if old_game_state is not None:
-        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == 1:
+        w_coin = walked_towards_closest_coin(self, events, old_game_state, new_game_state)
+        if w_coin == 1:
             events.append(WALKED_TOWARDS_CLOSEST_COIN)
-        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == -1:
+        if w_coin == -1:
             events.append(WALKED_AWAY_FROM_CLOSEST_COIN)
-        if walked_towards_closest_coin(self, events, old_game_state, new_game_state) == 0.5:
+        if w_coin == 0.5:
             events.append(COIN_LATERAL_MOVEMENT)
-        if walked_towards_closest_crate(self, events, old_game_state, new_game_state) == 1:
+        w_crate = walked_towards_closest_crate(self, events, old_game_state, new_game_state)
+        if w_crate == 1:
             events.append(WALKED_TOWARDS_CLOSEST_CRATE)
-        if walked_towards_closest_crate(self, events, old_game_state, new_game_state) == -1:
+        if w_crate == -1:
             events.append(WALKED_AWAY_FROM_CLOSEST_CRATE)
-        if walked_towards_closest_crate(self, events, old_game_state, new_game_state) == 0.5:
+        if w_crate == 0.5:
             events.append(CRATE_LATERAL_MOVEMENT)
         if dropped_bomb_next_to_crate(self, events, old_game_state, new_game_state) == 1:
             events.append(BOMB_NEXT_TO_CRATE)
-        if walked_away_from_bomb(self, events, old_game_state, new_game_state) == 1:
+        w_bomb = walked_away_from_bomb(self, events, old_game_state, new_game_state)
+        if w_bomb == 1 or w_bomb == 0.5:
             events.append(WALKED_AWAY_FROM_BOMB)
-        if walked_away_from_bomb(self, events, old_game_state, new_game_state) == -1:
+        if w_bomb == -1 or w_bomb == -0.5:
             events.append(WALKED_TOWARDS_BOMB)
 
 
@@ -102,13 +108,15 @@ def game_events_occurred(
                 total_rewards(self, events, old_game_state, new_game_state)
             )
         )
-        feat = state_to_features(self, old_game_state)
 
-        Y_tt = TD_target_respones(self)
+        feat = state_to_features(self, old_game_state)
+        #Y_tt = TD_target_respones(self)
+        #self.target_history[idx].append(Y_tt)
         idx = A_TO_NUM[self_action]
 
-        self.target_history[idx].append(Y_tt)
         self.feat_history[idx].append(feat)
+        self.reward_history[idx].append(total_rewards(self, events, old_game_state, new_game_state)) #MUST BE BEFORE NEXT_FEATURE IS CALCULATED!
+        self.next_feat_history[idx].append(state_to_features(self, new_game_state))
         #self.logger.info(f"self.target_history: {self.target_history}")
         #self.logger.info(f"self.feat_history: {self.feat_history}")
 
@@ -132,6 +140,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.forests, file)
+    with open("feature_history.pt", "wb") as file:
+        pickle.dump(self.feat_history, file)
+    with open("next_feature_history.pt", "wb") as file:
+        pickle.dump(self.next_feat_history, file)
+    with open("reward_history.pt", "wb") as file:
+        pickle.dump(self.reward_history, file)
 
 def total_rewards(self, events, old_game_state, new_game_state):
     rewards = [reward_from_events(self, events)]
@@ -139,22 +153,23 @@ def total_rewards(self, events, old_game_state, new_game_state):
 
 def reward_from_events(self, events: List[str]):
     game_rewards = {
-        e.COIN_COLLECTED: 10,
+        e.COIN_COLLECTED: 1,
         WALKED_TOWARDS_CLOSEST_COIN: 0.1,
         WALKED_AWAY_FROM_CLOSEST_COIN: -0.1,
         COIN_LATERAL_MOVEMENT: 0,
         WALKED_TOWARDS_CLOSEST_CRATE: 0.02,
         WALKED_AWAY_FROM_CLOSEST_CRATE: -0.02,
-        CRATE_LATERAL_MOVEMENT: 0,
-        BOMB_NEXT_TO_CRATE: 2,
-        WALKED_AWAY_FROM_BOMB: 1,
-        WALKED_TOWARDS_BOMB: -10,
-        #e.WAITED: -1,
-        #e.INVALID_ACTION: -5,
-        e.KILLED_SELF: -100,
+        CRATE_LATERAL_MOVEMENT:-0.02,
+        BOMB_NEXT_TO_CRATE: 15,
+        e.CRATE_DESTROYED: 5,
+        WALKED_AWAY_FROM_BOMB: 3,
+        WALKED_TOWARDS_BOMB: -3,
+        #e.WAITED: -0.2,     #should be disabled when trying to learn how to place bombs
+        e.INVALID_ACTION: -0.2,
+        e.KILLED_SELF: -10,
         #e.SURVIVED_ROUND: 100,
         e.CRATE_DESTROYED: 0,
-        e.BOMB_DROPPED: -1
+        e.BOMB_DROPPED: -5
         # e.KILLED_OPPONENT: 2,
         # PLACEHOLDER_EVENT: -0.1,  # idea: the custom event is bad
     }
@@ -171,10 +186,12 @@ def walked_towards_closest_coin(self, events, old_game_state, new_game_state):
     #field
     old_arena = old_game_state["field"]
     #surrounding walls
-    wall_above = old_arena[old_pos[0], old_pos[1]+1] == -1
-    wall_below = old_arena[old_pos[0], old_pos[1]-1] == -1
-    wall_right = old_arena[old_pos[0]+1, old_pos[1]] == -1
-    wall_left = old_arena[old_pos[0]-1, old_pos[1]] == -1
+    x,y = old_pos
+    explosion_map = old_game_state["explosion_map"]
+    wall_above = old_arena[x, y+1] == -1 or explosion_map[x, y+1] != 0
+    wall_below = old_arena[x, y-1] == -1 or explosion_map[x, y-1] != 0
+    wall_right = old_arena[x+1, y] == -1 or explosion_map[x+1, y] != 0
+    wall_left = old_arena[x-1, y] == -1 or explosion_map[x-1, y] != 0
 
     #position of coins
     old_coins, new_coins = old_game_state["coins"], new_game_state["coins"]
@@ -203,10 +220,12 @@ def walked_towards_closest_crate(self, events, old_game_state, new_game_state):
     #field
     old_arena, new_arena = old_game_state["field"], new_game_state["field"]
     #surrounding walls
-    wall_above = old_arena[old_pos[0], old_pos[1]+1] == -1
-    wall_below = old_arena[old_pos[0], old_pos[1]-1] == -1
-    wall_right = old_arena[old_pos[0]+1, old_pos[1]] == -1
-    wall_left = old_arena[old_pos[0]-1, old_pos[1]] == -1
+    x,y = old_pos
+    explosion_map = old_game_state["explosion_map"]
+    wall_above = old_arena[x, y+1] == -1 or explosion_map[x, y+1] != 0
+    wall_below = old_arena[x, y-1] == -1 or explosion_map[x, y-1] != 0
+    wall_right = old_arena[x+1, y] == -1 or explosion_map[x+1, y] != 0
+    wall_left = old_arena[x-1, y] == -1 or explosion_map[x-1, y] != 0
     
     #position of barrel
     old_barrels, new_barrels = np.argwhere(old_arena>0), np.argwhere(new_arena>0)
@@ -234,10 +253,12 @@ def walked_towards_closest_player(self, events, old_game_state, new_game_state):
     #field
     old_arena, new_arena = old_game_state["field"], new_game_state["field"]
     #surrounding walls
-    wall_above = old_arena[old_pos[0], old_pos[1]+1] == -1
-    wall_below = old_arena[old_pos[0], old_pos[1]-1] == -1
-    wall_right = old_arena[old_pos[0]+1, old_pos[1]] == -1
-    wall_left = old_arena[old_pos[0]-1, old_pos[1]] == -1
+    x,y = old_pos
+    explosion_map = old_game_state["explosion_map"]
+    wall_above = old_arena[x, y+1] == -1 or explosion_map[x, y+1] != 0
+    wall_below = old_arena[x, y-1] == -1 or explosion_map[x, y-1] != 0
+    wall_right = old_arena[x+1, y] == -1 or explosion_map[x+1, y] != 0
+    wall_left = old_arena[x-1, y] == -1 or explosion_map[x-1, y] != 0
     
     #position of enemys
     old_others = np.array([xy for (n, s, b, xy) in old_game_state["others"]])
@@ -268,20 +289,31 @@ def walked_away_from_bomb(self, events, old_game_state, new_game_state):
     old_pos, new_pos = np.array(old_game_state["self"][-1]), np.array(new_game_state["self"][-1])
     #field
     old_arena, new_arena = old_game_state["field"], new_game_state["field"]
-    bomb_xys = [[bomb_x, bomb_y, bomb_t] for ((bomb_x, bomb_y), bomb_t) in old_game_state["bombs"]]
+    bomb_xys = np.array([[bomb_x, bomb_y] for ((bomb_x, bomb_y), bomb_t) in old_game_state["bombs"]])
     num_bombs=len(bomb_xys)
     if num_bombs==0:
         return 0
     bomb_ranges = []
     for bomb in bomb_xys:
-        x,y = bomb[0], bomb[1]
+        x,y = bomb
         bomb_ranges.append([[x,y], [x,y+1], [x,y+2], [x,y+3], [x,y+4], [x,y-1], [x,y-2], [x,y-3], [x,y-4],\
                                    [x+1,y], [x+2,y], [x+3,y], [x+4,y], [x-1,y], [x-2,y], [x-3,y], [x-4,y]])
-    bomb_ranges = np.array(bomb_ranges).reshape(num_bombs*17,2)
-    if old_pos in bomb_ranges and not new_pos in bomb_ranges:
+    bomb_ranges_r = np.array(bomb_ranges).reshape(num_bombs*17,2)
+    if old_pos in bomb_ranges_r and not new_pos in bomb_ranges_r:
         return 1
-    if new_pos in bomb_ranges and not old_pos in bomb_ranges:
+    elif new_pos in bomb_ranges_r and not old_pos in bomb_ranges_r:
         return -1
+    elif old_pos in bomb_ranges_r and new_pos in bomb_ranges_r:
+        if num_bombs == 1:
+            bomb_pos = bomb_xys
+        else:
+            idx = np.argwhere(np.all(bomb_ranges == old_pos, axis=-1))
+            bomb_pos = bomb_xys[idx]
+        #give reward if player walks away from dangerous bomb
+        diff = np.linalg.norm(bomb_pos-new_pos, ord=L)-np.linalg.norm(bomb_pos-old_pos, ord=L)
+        if diff>0:
+            return 0.5
+        else:
+            return -0.5
+
     else: return 0
-
-

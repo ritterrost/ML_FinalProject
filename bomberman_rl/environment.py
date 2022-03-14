@@ -16,6 +16,9 @@ import settings as s
 from agents import Agent, SequentialAgentBackend
 from fallbacks import pygame
 from items import Coin, Explosion, Bomb
+# for vietnam
+from io import BytesIO
+from random import random
 
 WorldArgs = namedtuple("WorldArgs",
                        ["no_gui", "fps", "turn_based", "update_interval", "save_replay", "replay", "make_video", "continue_without_training", "log_dir", "save_stats", "match_name", "seed", "silence_errors", "scenario"])
@@ -174,6 +177,16 @@ class GenericWorld:
         self.update_bombs()
         self.evaluate_explosions()
         self.send_game_events()
+
+        # for vietnam add random bomb with 
+        if self.args.scenario == 'vietnam':
+            if len(self.active_agents) != 0:
+                r = np.random.rand()
+                if r < s.SCENARIOS['vietnam']['BOMB_PROB']:
+                    pos = np.random.choice(np.arange(1, 16, 2), 2)
+                    a = self.active_agents[0]
+                    sprite = pygame.image.load(f'agent_code/{a.code_name}/vietnam_bomb.png')
+                    self.bombs.append(Bomb(pos, a, s.BOMB_TIMER, s.BOMB_POWER, sprite))
 
         if self.time_to_stop():
             self.end_round()
