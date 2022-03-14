@@ -9,6 +9,7 @@ ROWS = 17
 SCENARIOS = {
     "coin-heaven": {"CRATE_DENSITY": 0, "COIN_COUNT": 50},
     # This is the tournament game mode
+    # old 0.75
     "classic": {"CRATE_DENSITY": 0.75, "COIN_COUNT": 9},
     # VIETNAM
     "vietnam": {"CRATE_DENSITY": 0, "COIN_COUNT": 20, "BOMB_PROB": 0.6}

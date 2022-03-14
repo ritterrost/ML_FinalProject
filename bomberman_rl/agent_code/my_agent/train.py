@@ -3,11 +3,17 @@ import pickle
 from subprocess import call
 from typing import List
 import numpy as np
+from agent_code.my_agent.plots import Plotting
 import events as e
 
 from agent_code.my_agent import event_functions
 from agent_code.my_agent import feature_functions
 from agent_code.my_agent import callbacks
+
+# for plotting
+import csv
+import pandas as pd
+import numpy as np
 
 # This is only an example!
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
@@ -50,9 +56,12 @@ def forest_update(self):
 
 
 def setup_training(self):
-    # to improve training speed
-    # self.round_counter = 0
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.reward_data = 0 # for plotting
+
+    with open('data.csv', 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(['round', 'score', 'survival time', 'total rewards'])
 
 
 def game_events_occurred(
@@ -65,6 +74,10 @@ def game_events_occurred(
 
     # custom events use event_functions here
     if old_game_state is not None:
+        if event_functions.made_suggested_move(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
+            events.append(MADE_SUGGESTED_MOVE)
+        if event_functions.drop_bomb_next_to_crate(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
+            events.append(DROP_BOMB_NEXT_TO_CRATE)
         self.transitions.append(
             Transition(
                 feature_functions.state_to_features_bfs_2(old_game_state),
@@ -74,12 +87,9 @@ def game_events_occurred(
                 total_rewards(self, events, old_game_state, new_game_state),
             )
         )
-        if event_functions.made_suggested_move(self) == 1:
-            events.append(MADE_SUGGESTED_MOVE)
-        if event_functions.drop_bomb_next_to_crate(self) == 1:
-            events.append(DROP_BOMB_NEXT_TO_CRATE)
         # if event_functions.in_danger_zone(self) == 1:
         #     events.append(IN_DANGER_ZONE)
+        self.reward_data += total_rewards(self, events, old_game_state, new_game_state)
 
         feat = feature_functions.state_to_features_bfs_2(old_game_state)
         Y_tt = response_func(self)
@@ -94,7 +104,6 @@ def game_events_occurred(
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
-    # self.round_counter += 1
     self.transitions.append(
         Transition(
             feature_functions.state_to_features_bfs_2(last_game_state),
@@ -103,6 +112,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
             reward_from_events(self, events),
         )
     )
+    with open('data.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data))
+
+    # reset reward counter for plotting
+    self.reward_data = 0
 
     # update forests for all actions
     forest_update(self)
@@ -115,18 +130,20 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def total_rewards(self, events, old_game_state, new_game_state):
     rewards = [reward_from_events(self, events)]
+
+    # self.plotting.store_data(rewards)
     return sum(rewards)
 
 
 def reward_from_events(self, events: List[str]):
     game_rewards = {
         e.COIN_COLLECTED: 5,
-        e.KILLED_SELF: -2,
-        e.CRATE_DESTROYED: 5,
+        # e.KILLED_SELF: -2,
+        e.CRATE_DESTROYED: 1,
         e.KILLED_OPPONENT: 10,
         e.GOT_KILLED: -2,
-        MADE_SUGGESTED_MOVE: 1,
-        DROP_BOMB_NEXT_TO_CRATE: 5,
+        MADE_SUGGESTED_MOVE: 5,
+        DROP_BOMB_NEXT_TO_CRATE: 1,
         # IN_DANGER_ZONE: -5,
 
     }
