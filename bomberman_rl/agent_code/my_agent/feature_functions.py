@@ -27,6 +27,8 @@ BOMBS_FEAT_SIZE = 12
 BR = 3
 
 def state_to_features_bfs_2(game_state):
+    if game_state == None:
+        return None
     arena = game_state["field"]
     others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])
     coins = np.asarray(game_state["coins"])

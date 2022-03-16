@@ -16,9 +16,13 @@ A_TO_COORD = {
 }
 
 
-# def made_suggested_move(state, action):
-#     if (np.array(A_TO_COORD[action]) == state[0:2]).all():
-#         return 1
+def walked_towards_closest_coin(state, action):
+    if (np.array(A_TO_COORD[action]) == state[0:2]).all():
+        return 1
+
+def walked_from_danger(state, action):
+    if (np.array(A_TO_COORD[action]) == state[4:6]).all():
+        return 1
 
 
 def drop_bomb_next_to_crate(state, action):
