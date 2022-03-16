@@ -4,9 +4,10 @@
     "\\bomberman_rl",
     "\\bomberman_rl\\agent_code",
     "\\bomberman_rl\\agent_code\\my_agent",
+    "\\bomberman_rl\\agent_code\\my_agent\\current_model",
     "\\bomberman_rl\\agent_code\\rule_based_agent",
     "\\bomberman_rl\\logs"
   ],
-  "SelectedNode": "\\bomberman_rl\\agent_code\\my_agent\\vietnam_bomb.png",
+  "SelectedNode": "\\bomberman_rl\\agent_code\\my_agent\\current_model\\feature_history.pt",
   "PreviewInSolutionExplorer": false
 }
