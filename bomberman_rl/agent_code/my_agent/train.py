@@ -74,10 +74,10 @@ def game_events_occurred(
 
     # custom events use event_functions here
     if old_game_state is not None:
-        if event_functions.made_suggested_move(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
-            events.append(MADE_SUGGESTED_MOVE)
-        if event_functions.drop_bomb_next_to_crate(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
-            events.append(DROP_BOMB_NEXT_TO_CRATE)
+        # if event_functions.made_suggested_move(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
+        #     events.append(MADE_SUGGESTED_MOVE)
+        # if event_functions.drop_bomb_next_to_crate(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
+        #     events.append(DROP_BOMB_NEXT_TO_CRATE)
         self.transitions.append(
             Transition(
                 feature_functions.state_to_features_bfs_2(old_game_state),
