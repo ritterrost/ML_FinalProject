@@ -5,10 +5,10 @@ from fallbacks import pygame
 
 # Game properties
 COLS = 17
-ROWS = 17
+ROWS = COLS
 SCENARIOS = {
     "coin-heaven": {
-        "CRATE_DENSITY": 0,
+        "CRATE_DENSITY": 0.2,
         "COIN_COUNT": 20
     },
     "vietnam":{

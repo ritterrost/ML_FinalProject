@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\bomberman_rl",
+    "\\bomberman_rl\\agent_code",
+    "\\bomberman_rl\\agent_code\\my_agent",
+    "\\bomberman_rl\\agent_code\\my_agent\\Crate destroyer",
+    "\\bomberman_rl\\agent_code\\my_agent\\current_model",
+    "\\bomberman_rl\\agent_code\\my_agent_old",
+    "\\bomberman_rl\\agent_code\\rule_based_agent",
+    "\\bomberman_rl\\agent_code\\user_agent",
+    "\\bomberman_rl\\logs"
+  ],
+  "SelectedNode": "\\bomberman_rl\\agent_code\\my_agent\\current_model",
+  "PreviewInSolutionExplorer": false
+}

@@ -1,6 +1,4 @@
 import collections
-from operator import ne
-from attr import field
 
 """
   Input: game_state: {
@@ -53,6 +51,7 @@ def explosion_range(bomb_xy, arena):
 def state_to_features_bfs_2(game_state):
     if game_state == None:
         return None
+
     arena = game_state["field"]
     others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])
     coins = np.asarray(game_state["coins"])
@@ -62,11 +61,9 @@ def state_to_features_bfs_2(game_state):
     _, _, _, (x, y) = game_state["self"]
     pos_self = np.asarray((x, y))
 
-    # rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
-
     #save original arena
     orig_arena = arena.copy()
-    
+
     # overlay arena
     if others.shape[0] != 0:
         arena[others[:, 0], others[:, 1]] = 2
@@ -74,16 +71,10 @@ def state_to_features_bfs_2(game_state):
     if coins.shape[0] != 0:
         arena[coins[:, 0], coins[:, 1]] = 3
 
-    # if bombs_xy.shape[0] != 0:
-    #     arena[bombs_xy[:, 1], bombs_xy[:, 0]] = 4
-
-    is_in_danger_zone = False
     if bombs_xy.shape[0] != 0:
         for b in bombs_xy:
             explosion_range(b, arena)
 
-    if arena[pos_self[0], pos_self[1]] == 4:
-        is_in_danger_zone = True
 
     explosion_array = np.argwhere(explosion_map == 1)
     if explosion_array.shape[0] != 0:
@@ -93,7 +84,6 @@ def state_to_features_bfs_2(game_state):
     coin_dist = -1
     if coins.shape[0] != 0:
         next_coord, coin_dist = bfs_cc(orig_arena, arena, pos_self, "coin")
-        # print('coin dist: ', coin_dist)
         if next_coord is not None:
             coin_step = next_coord - pos_self
 
@@ -109,7 +99,6 @@ def state_to_features_bfs_2(game_state):
 
     free_step = np.array([1, 1])
     free_dist = -1
-    # print("in danger zone")
     next_coord, free_dist = bfs_cc(orig_arena, arena, pos_self, "free")
     if next_coord is not None:
         free_step = next_coord - pos_self
@@ -120,8 +109,8 @@ def state_to_features_bfs_2(game_state):
         next_coord, other_dist = bfs_cc(orig_arena, arena, pos_self, "other")
         if next_coord is not None:
             other_step = next_coord - pos_self
-            
-    rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]]) != 0
+
+    # rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]]) != 0
     
     #drop test bomb at location to see if can escape
     explosion_range((x,y), arena)
@@ -131,17 +120,20 @@ def state_to_features_bfs_2(game_state):
     else:
         escape = [True]
 
-    # print("final arena: ", arena.T)
-    # print("--------------------------------------------------------")
-
-    # is_in_danger_zone = np.asarray(is_in_danger_zone).astype(int)
     coin_feat = np.append(coin_step, coin_dist)
     crate_feat = np.append(crate_step, crate_dist)
     free_feat = np.append(free_step, free_dist)
     other_feat = np.append(other_step, other_dist)
 
+    #set distances to maximal values of 4  over that threshhold to reduce feature space size
+    ##for testing only
+    # if not self.train:
+    #     coin_dist = min(5, coin_dist)
+    #     crate_dist = min(5, crate_dist)
+    #     #other_dist = min(5, other_dist)
+    #     #free_dist = min(2, free_dist)
+
     feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
-    # print('feature vec: ', feature_vec)
     return feature_vec
 
 
@@ -168,15 +160,12 @@ def bfs_cc(orig_arena, arena, start, target: str):
     queue = collections.deque([[start]])
     seen = set(start)
     dist = -1
-    # print('target: ', target_dict[target])
     while queue:
         path = queue.popleft()
         xy = path[-1]
         x = xy[0]
         y = xy[1]
         if arena[x][y] == goal:
-            # print('arena[y][x]', arena[x][y])
-            # print('path: ', path)
             if len(path) > 1:
                 dist = len(path)-1
                 return path[1], dist
