@@ -6,14 +6,12 @@ import numpy as np
 from agent_code.my_agent.plots import Plotting
 import events as e
 
-from .event_functions import walked_towards_closest_coin, walked_from_danger
+from .event_functions import walked_towards_closest_coin, walked_from_danger, drop_bomb_next_to_crate, has_no_escape
 from .feature_functions import state_to_features_bfs_2 as state_to_features
 from .callbacks import Q_func, A_TO_NUM
 
 # for plotting
 import csv
-import pandas as pd
-import numpy as np
 
 # This is only an example!
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
@@ -21,10 +19,8 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 # Hyper parameters -- DO modify
 TRANSITION_HISTORY_SIZE = 1  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-COIN_K = 1
-# ALPHA = 0.1
-BATCH_SIZE = 2000
-GAMMA = 0.1
+BATCH_SIZE = 100000
+GAMMA = 0.5
 
 # Events
 MADE_SUGGESTED_MOVE = "MADE_SUGGESTED_MOVE"
@@ -32,6 +28,7 @@ DROP_BOMB_NEXT_TO_CRATE = "DROP_BOMB_NEXT_TO_CRATE"
 IN_DANGER_ZONE = "IN_DANGER_ZONE"
 WALKED_TO_COIN = "WALKED_TO_COIN"
 WALKED_FROM_DANGER = "WALKED_FROM_DANGER"
+HAS_NO_ESCAPE = "HAS_NO_ESCAPE"
 
 
 # for convenience
@@ -75,17 +72,22 @@ def game_events_occurred(
 ):
 
     # custom events use event_functions here
-    old_feat = state_to_features(old_game_state)
     if old_game_state is not None:
+        old_feat = state_to_features(old_game_state)
+        new_feat = state_to_features(new_game_state)
         if walked_towards_closest_coin(old_feat, self_action):
             events.append(WALKED_TO_COIN)
         if walked_from_danger(old_feat, self_action):
             events.append(WALKED_FROM_DANGER)
+        if drop_bomb_next_to_crate(old_feat, self_action):
+            events.append(DROP_BOMB_NEXT_TO_CRATE)
+        if has_no_escape(new_feat, self_action):
+            events.append(HAS_NO_ESCAPE)
         self.transitions.append(
             Transition(
                 old_feat,
                 self_action,
-                state_to_features(new_game_state),
+                new_feat,
                 # reward_from_events(self, events),
                 total_rewards(self, events, old_game_state, new_game_state),
             )
@@ -141,13 +143,14 @@ def reward_from_events(self, events: List[str]):
     game_rewards = {
         e.COIN_COLLECTED: 5,
         e.KILLED_SELF: -5,
-        e.CRATE_DESTROYED: 1,
+        # e.CRATE_DESTROYED: 1,
         # e.KILLED_OPPONENT: 0,
         e.GOT_KILLED: -5,
-        # DROP_BOMB_NEXT_TO_CRATE: 1,
+        DROP_BOMB_NEXT_TO_CRATE: 1,
         # e.SURVIVED_ROUND: 20,
-        WALKED_FROM_DANGER: 5,
+        WALKED_FROM_DANGER: 20,
         WALKED_TO_COIN: 1,
+        HAS_NO_ESCAPE: -10,
         # IN_DANGER_ZONE: -5,
 
     }

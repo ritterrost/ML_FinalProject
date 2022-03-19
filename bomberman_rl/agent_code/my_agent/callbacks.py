@@ -1,4 +1,5 @@
 import os
+import sys
 import pickle
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
@@ -13,14 +14,14 @@ A_IDX = np.arange(0, 6, 1, dtype="int")
 
 # Hyperparameters
 MAX_DEPTH = 10
-N_ESTIMATORS = 20
+N_ESTIMATORS = 50
 # RANGE = 6
 EPSILON_TRAIN = 0.2
-EPSILON = 0.05
+EPSILON = 0.00
 RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 12
-
+FEAT_DIM = 13
+    
 
 def policy_alt(self):
     prob = np.exp(self.Q_pred / self.rho)
@@ -44,6 +45,11 @@ def Q_func(self, feat):
 
 
 def setup(self):
+    self.keep_training = False
+    for arg in sys.argv:
+        if arg=="--keep-training":
+            self.keep_training = True
+            break
     if self.train:
         self.forests = [
             RandomForestRegressor(
@@ -59,7 +65,7 @@ def setup(self):
     else:
         self.epsilon = EPSILON
         self.rho = RHO
-    if self.train or not os.path.isfile("my-saved-model.pt"):
+    if (self.train and not self.keep_training) or not os.path.isfile("my-saved-model.pt"):
         # initial forest, create random model of right dimension and make fit
         X, y = make_regression(n_features=FEAT_DIM, random_state=0)
         for idx in A_IDX:

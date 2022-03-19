@@ -18,13 +18,37 @@ from attr import field
 """
 
 import numpy as np
-from agent_code.my_agent import callbacks
 
 # Feature Parameter
-COIN_K = 1
-SIGHT = 1
 BOMBS_FEAT_SIZE = 12
 BR = 3
+
+
+def explosion_range(bomb_xy, arena):
+    b = bomb_xy
+    u_b, r_b, d_b, l_b = False, False, False, False
+    for i in range(BR + 1):
+        if not u_b:
+            if arena[b[0] - i, b[1]] != -1:
+                arena[b[0] - i, b[1]] = 4
+            else:
+                u_b = True
+        if not d_b:
+            if arena[b[0] + i, b[1]] != -1:
+                arena[b[0] + i, b[1]] = 4
+            else:
+                d_b = True
+        if not l_b:
+            if arena[b[0], b[1] - i] != -1:
+                arena[b[0], b[1] - i] = 4
+            else:
+                l_b = True
+        if not r_b:
+            if arena[b[0], b[1] + i] != -1:
+                arena[b[0], b[1] + i] = 4
+            else:
+                r_b = True
+
 
 def state_to_features_bfs_2(game_state):
     if game_state == None:
@@ -38,10 +62,10 @@ def state_to_features_bfs_2(game_state):
     _, _, _, (x, y) = game_state["self"]
     pos_self = np.asarray((x, y))
 
-    rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
+    # rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
 
     #save original arena
-    orig_arena = arena
+    orig_arena = arena.copy()
     
     # overlay arena
     if others.shape[0] != 0:
@@ -56,28 +80,7 @@ def state_to_features_bfs_2(game_state):
     is_in_danger_zone = False
     if bombs_xy.shape[0] != 0:
         for b in bombs_xy:
-            u_b, r_b, d_b, l_b = False, False, False, False
-            for i in range(BR + 1):
-                if not u_b:
-                    if arena[b[0] - i, b[1]] != -1:
-                        arena[b[0] - i, b[1]] = 4
-                    else:
-                        u_b = True
-                if not d_b:
-                    if arena[b[0] + i, b[1]] != -1:
-                        arena[b[0] + i, b[1]] = 4
-                    else:
-                        d_b = True
-                if not l_b:
-                    if arena[b[0], b[1] - i] != -1:
-                        arena[b[0], b[1] - i] = 4
-                    else:
-                        l_b = True
-                if not r_b:
-                    if arena[b[0], b[1] + i] != -1:
-                        arena[b[0], b[1] + i] = 4
-                    else:
-                        r_b = True
+            explosion_range(b, arena)
 
     if arena[pos_self[0], pos_self[1]] == 4:
         is_in_danger_zone = True
@@ -117,6 +120,16 @@ def state_to_features_bfs_2(game_state):
         next_coord, other_dist = bfs_cc(orig_arena, arena, pos_self, "other")
         if next_coord is not None:
             other_step = next_coord - pos_self
+            
+    rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]]) != 0
+    
+    #drop test bomb at location to see if can escape
+    explosion_range((x,y), arena)
+    _, escape_dist = bfs_cc(orig_arena, arena, pos_self, "free")
+    if escape_dist == -1 or escape_dist > 4:
+        escape = [False]
+    else:
+        escape = [True]
 
     # print("final arena: ", arena.T)
     # print("--------------------------------------------------------")
@@ -127,9 +140,10 @@ def state_to_features_bfs_2(game_state):
     free_feat = np.append(free_step, free_dist)
     other_feat = np.append(other_step, other_dist)
 
-    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat))
+    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
     # print('feature vec: ', feature_vec)
     return feature_vec
+
 
 def bfs_cc(orig_arena, arena, start, target: str):
     target_dict = {
