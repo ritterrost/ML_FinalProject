@@ -8,13 +8,13 @@ COLS = 17
 ROWS = COLS
 SCENARIOS = {
     "coin-heaven": {
-        "CRATE_DENSITY": 0,
+        "CRATE_DENSITY": 0.2,
         "COIN_COUNT": 20
     },
     "vietnam":{
         "CRATE_DENSITY": 0,
         "COIN_COUNT":20,
-        "BOMB_PROB": 0.3
+        "BOMB_PROB": 0.5
     },
     # This is the tournament game mode
     "classic": {
@@ -27,7 +27,7 @@ SCENARIOS = {
 MAX_AGENTS = 4
 
 # Round properties
-MAX_STEPS = 100
+MAX_STEPS = 400 #put high value so even far away coins are collected
 
 # GUI properties
 GRID_SIZE = 30

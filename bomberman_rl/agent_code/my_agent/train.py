@@ -37,12 +37,10 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 
 # Hyper parameters -- DO modify
 TRANSITION_HISTORY_SIZE = 1  # keep only ... last transitions
-RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-COIN_K = 1
 # ALPHA = 0.1
-BATCH_SIZE = 2000
-GAMMA = 0.7 #0.5 seems good
-
+#BATCH_SIZE = 2000
+GAMMA = 0.5 #0.5 seems good
+SAMPLE_PROP = 0.1 #proportion of data each tree is fitted on in percent
 
 # for convenience
 A_NUM = 6
@@ -53,6 +51,7 @@ def forest_update(self):
 
     for idx in A_IDX:
         if len(self.feat_history[idx])>0:
+            self.forests[idx].set_params(max_samples = int(np.ceil(len(self.feat_history[idx])*SAMPLE_PROP))) #only choose 1/10 of dataset for fitting each tree
             X = np.array(self.feat_history[idx])
             next_q_value = np.array([self.forests[i].predict(np.array(self.next_feat_history[idx])) for i in A_IDX])
             y = np.array(self.reward_history[idx]) + GAMMA*np.max(next_q_value, axis = 0)
@@ -79,40 +78,40 @@ def game_events_occurred(
 
     # custom events use event_functions here
     if old_game_state is not None:
-        old_feat = feature_functions.state_to_features_bfs_2(old_game_state)
+        old_feat = feature_functions.state_to_features_bfs_2(self, old_game_state)
         #if event_functions.made_suggested_move(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
         #    events.append(MADE_SUGGESTED_MOVE)
 
-        if event_functions.drop_bomb_next_to_crate(old_feat, self_action) == 1:  #DONE
+        if event_functions.drop_bomb_next_to_crate(old_feat, events) == 1:  #DONE
             events.append(DROP_BOMB_NEXT_TO_CRATE)
 
-        ##if event_functions.in_danger_zone(old_feat) == 1:
-        ##    events.append(IN_DANGER_ZONE)
-
-        free_tile_event = event_functions.walked_towards_free_tile(old_game_state, new_game_state, self_action)
+        free_tile_event = event_functions.walked_towards_free_tile(old_game_state, new_game_state, old_feat)
         if free_tile_event == 1:
             events.append(WALKED_TOWARDS_FREE_TILE)
-        elif free_tile_event == 0.5:
+        elif free_tile_event == -1:
             events.append(STAYS_IN_DANGER_ZONE)
 
+        feat = feature_functions.state_to_features_bfs_2(self, old_game_state)
+        reward = total_rewards(self, events, old_game_state, new_game_state)
+        print("reward   :", reward)
+        print("features ", feature_functions.state_to_features_bfs_2(self, new_game_state))
 
         self.transitions.append(
             Transition(
-                feature_functions.state_to_features_bfs_2(old_game_state),
+                feature_functions.state_to_features_bfs_2(self, old_game_state),
                 self_action,
-                feature_functions.state_to_features_bfs_2(new_game_state),
+                feature_functions.state_to_features_bfs_2(self, new_game_state),
                 # reward_from_events(self, events),
-                total_rewards(self, events, old_game_state, new_game_state),
+                reward,
             )
         )
 
-        feat = feature_functions.state_to_features_bfs_2(old_game_state)
         idx = callbacks.A_TO_NUM[self_action]
 
         self.feat_history[idx].append(feat)
-        self.reward_history[idx].append(total_rewards(self, events, old_game_state, new_game_state))
+        self.reward_history[idx].append(reward)
         self.reward_data += self.reward_history[idx][-1]
-        self.next_feat_history[idx].append(feature_functions.state_to_features_bfs_2(new_game_state))
+        self.next_feat_history[idx].append(feature_functions.state_to_features_bfs_2(self, new_game_state))
 
         #self.logger.info(f"feature_vec: {feat}")
         # self.logger.info(f"self.target_history: {self.target_history}")
@@ -122,7 +121,7 @@ def game_events_occurred(
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     self.transitions.append(
         Transition(
-            feature_functions.state_to_features_bfs_2(last_game_state),
+            feature_functions.state_to_features_bfs_2(self, last_game_state),
             last_action,
             None,
             event_functions.reward_from_events(self, events),

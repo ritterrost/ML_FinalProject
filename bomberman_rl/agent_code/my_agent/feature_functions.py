@@ -36,7 +36,7 @@ from agent_code.my_agent import callbacks
 # Feature Parameters (bomb range is given by game)
 BR = 3
 
-def state_to_features_bfs_2(game_state):
+def state_to_features_bfs_2(self, game_state):
     arena = game_state["field"]
     others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])
     coins = np.asarray(game_state["coins"])
@@ -49,7 +49,7 @@ def state_to_features_bfs_2(game_state):
     rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
 
     #save original arena
-    orig_arena = np.copy(arena)
+    orig_arena = np.copy(game_state["field"])
     
     #add immediate surroundings with explosions as walls
     xx, yy = np.array([[x,x,x+1,x-1], [y+1,y-1,y,y]])
@@ -128,23 +128,25 @@ def state_to_features_bfs_2(game_state):
         if next_coord is not None:
             other_step = next_coord - pos_self
 
-    # print("final arena: ", arena.T)
+    #print("final arena: ", arena.T)
     # print("--------------------------------------------------------")
 
     #set distances to maximal values of 4  over that threshhold to reduce feature space size
-    coin_dist = min(5, coin_dist)
-    crate_dist = min(5, crate_dist)
-    free_dist = min(5, free_dist)
-    other_dist = min(5, other_dist)
+    ##for testing only
+    if not self.train:
+        coin_dist = min(5, coin_dist)
+        crate_dist = min(5, crate_dist)
+        #other_dist = min(5, other_dist)
+        #free_dist = min(2, free_dist)
 
     coin_feat = np.append(coin_step, coin_dist).flatten()
     crate_feat = np.append(crate_step, crate_dist).flatten()
     free_feat = np.append(free_step, free_dist).flatten()
     other_feat = np.append(other_step, other_dist).flatten()
-    #danger_feat = np.asarray([is_in_danger_zone]).astype(int) #try to include "danger" parameter
 
-    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, unpassable))#, danger_feat))
+    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat))#, unpassable))
     #print('feature vec: ', feature_vec)
+    #print("free_feat    :", free_feat)
     return feature_vec
 
 def bfs_cc(orig_arena, arena, start, target: str):

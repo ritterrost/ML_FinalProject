@@ -10,16 +10,16 @@ from agent_code.my_agent import feature_functions
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
 A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 A_IDX = np.arange(0, 6, 1, dtype="int")
-FEAT_DIM = 16#+1 #one extra from danger zone
-#FEAT_DIM = 12#+1
+#FEAT_DIM = 16
+FEAT_DIM = 12#+1
 #hyperparameters
-MAX_DEPTH = 10 #better: less than 15
-N_ESTIMATORS = 20
+MAX_DEPTH = None #better: less than 15
+MAX_LEAF_NODES = 100000
+MIN_SAMPLES_SPLIT = 5
+N_ESTIMATORS = 50
 HISTORY_SIZE = 10000000
-EPSILON_TRAIN = 0.25
-EPSILON = 0.01
-RHO_TRAIN = 10
-RHO = 0.01
+EPSILON_TRAIN = 0.2
+RHO_TRAIN = 50
 
 
 def policy_alt(self):
@@ -51,7 +51,7 @@ def setup(self):
 
     self.forests = [
         RandomForestRegressor(
-            n_estimators = N_ESTIMATORS, max_depth = MAX_DEPTH, bootstrap = True
+            n_estimators = N_ESTIMATORS, max_depth = MAX_DEPTH, bootstrap = True, max_leaf_nodes = MAX_LEAF_NODES, min_samples_split = MIN_SAMPLES_SPLIT
             )
             for a in ACTIONS
     ]
@@ -69,8 +69,7 @@ def setup(self):
         self.epsilon = EPSILON_TRAIN
         self.rho = RHO_TRAIN
     else:  
-        self.epsilon = EPSILON
-        self.rho = RHO
+        self.epsilon = 0
 
     if not os.path.isfile("current_model/my-saved-model.pt") or not os.path.isfile("current_model/feature_history.pt")\
     or not os.path.isfile("current_model/next_feature_history.pt") or not os.path.isfile("current_model/reward_history.pt"):
@@ -91,8 +90,12 @@ def setup(self):
             self.reward_history = pickle.load(file)
 
 def act(self, game_state: dict):
-    feat = feature_functions.state_to_features_bfs_2(game_state)
+    feat = feature_functions.state_to_features_bfs_2(self, game_state)
     self.Q_pred = Q_func(self, feat)
-    a = policy(self)
+    if self.train:
+        #a = policy_alt(self)
+        a = policy(self)
+    else:
+        a = policy(self)
     # self.logger.info(f"action a in act: {a}")
     return ACTIONS[a]
