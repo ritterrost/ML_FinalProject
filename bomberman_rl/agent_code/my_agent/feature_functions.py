@@ -29,23 +29,27 @@ def explosion_range(bomb_xy, arena):
     u_b, r_b, d_b, l_b = False, False, False, False
     for i in range(BR + 1):
         if not u_b:
-            if arena[b[0] - i, b[1]] != -1:
-                arena[b[0] - i, b[1]] = 4
+            if (arena[b[0] - i, b[1]] != -1):
+                if (arena[b[0] - i, b[1]] != 1):
+                    arena[b[0] - i, b[1]] = 4
             else:
                 u_b = True
         if not d_b:
             if arena[b[0] + i, b[1]] != -1:
-                arena[b[0] + i, b[1]] = 4
+                if (arena[b[0] - i, b[1]] != 1):
+                    arena[b[0] + i, b[1]] = 4
             else:
                 d_b = True
         if not l_b:
             if arena[b[0], b[1] - i] != -1:
-                arena[b[0], b[1] - i] = 4
+                if (arena[b[0] - i, b[1]] != 1):
+                    arena[b[0], b[1] - i] = 4
             else:
                 l_b = True
         if not r_b:
             if arena[b[0], b[1] + i] != -1:
-                arena[b[0], b[1] + i] = 4
+                if (arena[b[0] - i, b[1]] != 1):
+                    arena[b[0], b[1] + i] = 4
             else:
                 r_b = True
 
