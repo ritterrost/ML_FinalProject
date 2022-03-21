@@ -1,4 +1,3 @@
-from collections import namedtuple
 import pickle
 from typing import List
 import numpy as np
@@ -19,7 +18,7 @@ HAS_NO_ESCAPE = "HAS_NO_ESCAPE"
 
 
 # This is only an example!
-Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
+# Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 # Hyper parameters -- DO modify
 TRANSITION_HISTORY_SIZE = 1  # keep only ... last transitions
@@ -44,12 +43,13 @@ def setup_training(self):
 
 def forest_update(self):
     #select random batch of transitions and updates all actions at once
-
     for idx in A_IDX:
+        self.logger.debug(f"update action {ACTIONS[idx]}")
+        # self.logger.debug(f"Q_values: {next_q_value}")
         if len(self.feat_history[idx])>0:
             X = np.array(self.feat_history[idx])
+            next_q_value = np.array([Q(self, np.array(self.next_feat_history[idx]), a) for a in ACTIONS])
             self.forests[idx].set_params(max_samples=int(np.sqrt(len(X))))  #only choose 1/10 of dataset for fitting each tree
-            next_q_value = np.array([Q(self, self.next_feat_history[A_TO_NUM[a]], a) for a in ACTIONS])
             y = np.array(self.reward_history[idx]) + GAMMA * np.max(next_q_value, axis=0)
             self.forests[idx].fit(np.array(X),np.array(y))
         else:
@@ -70,7 +70,7 @@ def game_events_occurred(
         new_feat = state_to_features(new_game_state)
         if walked_towards_closest_coin(old_feat, self_action):
             events.append(WALKED_TO_COIN)
-        if walked_from_danger(old_feat, self_action):
+        if walked_from_danger(old_feat, self_action) == 1:
             events.append(WALKED_FROM_DANGER)
         elif walked_from_danger(old_feat, self_action) == -1:
             events.append(STAYS_IN_DANGER_ZONE)
@@ -97,11 +97,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.reward_data += reward
 
     old_feat = state_to_features(last_game_state)
+    new_feat = state_to_features(None)
     idx = A_TO_NUM[last_action]
-    self.logger.debug(f"feature_vec: {old_feat}")
+    # self.logger.debug(f"feature_vec: {old_feat}")
     self.feat_history[idx].append(old_feat)
     self.reward_history[idx].append(reward)
-    self.next_feat_history[idx].append(None)
+    self.next_feat_history[idx].append(new_feat)
 
     # reset reward counter for plotting
     self.reward_data = 0
@@ -112,12 +113,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.forests, file)
-    with open("current_model/feature_history.pt", "wb") as file:
-        pickle.dump(self.feat_history, file)
-    with open("current_model/next_feature_history.pt", "wb") as file:
-        pickle.dump(self.next_feat_history, file)
-    with open("current_model/reward_history.pt", "wb") as file:
-        pickle.dump(self.reward_history, file)
+    # with open("current_model/feature_history.pt", "wb") as file:
+    #     pickle.dump(self.feat_history, file)
+    # with open("current_model/next_feature_history.pt", "wb") as file:
+    #     pickle.dump(self.next_feat_history, file)
+    # with open("current_model/reward_history.pt", "wb") as file:
+    #     pickle.dump(self.reward_history, file)
 
 
 def total_rewards(self, events, old_game_state, new_game_state):

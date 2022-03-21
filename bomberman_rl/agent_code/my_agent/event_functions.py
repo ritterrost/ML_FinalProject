@@ -55,6 +55,7 @@ def reward_from_events(self, events: list[str]):
     game_rewards = {
         e.COIN_COLLECTED: 60,
         e.KILLED_SELF: -100,
+        e.SURVIVED_ROUND: 100,
         # e.KILLED_OPPONENT: 0,
         # e.GOT_KILLED: -5,
         DROP_BOMB_NEXT_TO_CRATE: 60,
@@ -62,14 +63,13 @@ def reward_from_events(self, events: list[str]):
         WALKED_FROM_DANGER: 40,
         STAYS_IN_DANGER_ZONE: -40,
         WALKED_TO_COIN: 10,
-        HAS_NO_ESCAPE: -100,
+        HAS_NO_ESCAPE: -500,
 
     }
 
     reward_sum = 0
     for event in events:
         if event in game_rewards:
-            print("event     :", event)
             reward_sum += game_rewards[event]
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum

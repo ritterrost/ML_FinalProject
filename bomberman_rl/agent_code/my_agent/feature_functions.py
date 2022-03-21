@@ -20,6 +20,8 @@ import numpy as np
 # Feature Parameter
 BOMBS_FEAT_SIZE = 12
 BR = 3
+FEAT_DIM = 13
+
 
 
 def explosion_range(bomb_xy, arena):
@@ -49,8 +51,8 @@ def explosion_range(bomb_xy, arena):
 
 
 def state_to_features_bfs_2(game_state):
-    if game_state == None:
-        return None
+    if game_state is None:
+        return np.zeros((FEAT_DIM))
 
     arena = game_state["field"]
     others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])

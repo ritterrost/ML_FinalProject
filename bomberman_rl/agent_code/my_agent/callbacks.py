@@ -4,9 +4,8 @@ import pickle
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import make_regression
-
 from collections import deque
-from .feature_functions import state_to_features_bfs_2 as state_to_features
+from .feature_functions import state_to_features_bfs_2 as state_to_features, FEAT_DIM
 
 # Game Parameter
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
@@ -15,13 +14,12 @@ A_IDX = np.arange(0, 6, 1, dtype="int")
 
 #hyperparameters
 MAX_DEPTH = None #better: less than 15
-MAX_LEAF_NODES = 100000
+MAX_LEAF_NODES = 1000
 MIN_SAMPLES_SPLIT = 5
-N_ESTIMATORS = 50
-HISTORY_SIZE = 10000000
+N_ESTIMATORS = 20
+HISTORY_SIZE = 10000
 EPSILON_TRAIN = 0.2
 RHO_TRAIN = 50
-FEAT_DIM = 13
 
 
 def setup(self):
@@ -37,17 +35,17 @@ def setup(self):
                 )
                 for a in ACTIONS
         ]
-        self.feat_history = [deque(maxlen=HISTORY_SIZE)]*6
-        self.target_history = [deque(maxlen=HISTORY_SIZE)]*6
-        self.next_feat_history = [deque(maxlen=HISTORY_SIZE)]*6
-        self.reward_history = [deque(maxlen=HISTORY_SIZE)]*6
+        self.feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
+        self.next_feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
+        self.reward_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.epsilon = EPSILON_TRAIN
+        self.logger.debug("feat_history", self.feat_history)
     else:  
         self.epsilon = 0
 
     if (self.train and not self.keep_training) or not os.path.isfile("my-saved-model.pt"):
         # initial forest, create random model of right dimension and make fit
-        X, y = make_regression(n_features=FEAT_DIM, random_state=0)
+        X, y = make_regression(n_features=FEAT_DIM)
         for idx in A_IDX:
             self.forests[idx].fit(X, y)
     else:
@@ -76,19 +74,16 @@ def policy(self, Qs):
         return np.argmax(Qs)
 
 def Q(self, s, a):
-    if s is None:
-        return 0
-    else:
-        return self.forests[A_TO_NUM[a]].predict(s)
+    return self.forests[A_TO_NUM[a]].predict(s)
 
 def Q_func(self, s):
     # takes features and index of action, returns predicted Q-value from forest of action, a-vector
-    return np.array([Q(self, s, a) for a in ACTIONS])
+    return np.array([Q(self, [s], a) for a in ACTIONS])
 
 
 def act(self, game_state: dict):
     feat = state_to_features(game_state)
     Qs = Q_func(self, feat)
     a = policy(self, Qs)
-    # self.logger.info(f"action a in act: {a}")
+    self.logger.debug(f"action a in act: {ACTIONS[a]}")
     return ACTIONS[a]
