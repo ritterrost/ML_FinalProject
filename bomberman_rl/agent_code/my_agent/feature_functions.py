@@ -139,7 +139,7 @@ def state_to_features_bfs_2(game_state):
     #     #other_dist = min(5, other_dist)
     #     #free_dist = min(2, free_dist)
 
-    print('arena: ', arena)
+    # print('arena: ', arena)
     feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
     return feature_vec
 
