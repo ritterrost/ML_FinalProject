@@ -1,3 +1,4 @@
+from os import stat
 import pickle
 from typing import List
 import numpy as np
@@ -82,10 +83,11 @@ def game_events_occurred(
         self.reward_data += reward
 
         idx = A_TO_NUM[self_action]
-        self.logger.debug(f"feature_vec: {old_feat}")
-        self.feat_history[idx].append(old_feat)
-        self.reward_history[idx].append(reward)
-        self.next_feat_history[idx].append(new_feat)
+        print('feat: ', state_to_features(new_game_state))
+        # self.logger.debug(f"feature_vec: {old_feat}")
+        # self.feat_history[idx].append(old_feat)
+        # self.reward_history[idx].append(reward)
+        # self.next_feat_history[idx].append(new_feat)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

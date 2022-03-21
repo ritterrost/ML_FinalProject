@@ -36,19 +36,19 @@ def explosion_range(bomb_xy, arena):
                 u_b = True
         if not d_b:
             if arena[b[0] + i, b[1]] != -1:
-                if (arena[b[0] - i, b[1]] != 1):
+                if (arena[b[0] + i, b[1]] != 1):
                     arena[b[0] + i, b[1]] = 4
             else:
                 d_b = True
         if not l_b:
             if arena[b[0], b[1] - i] != -1:
-                if (arena[b[0] - i, b[1]] != 1):
+                if (arena[b[0], b[1] - i] != 1):
                     arena[b[0], b[1] - i] = 4
             else:
                 l_b = True
         if not r_b:
             if arena[b[0], b[1] + i] != -1:
-                if (arena[b[0] - i, b[1]] != 1):
+                if (arena[b[0], b[1] + i] != 1):
                     arena[b[0], b[1] + i] = 4
             else:
                 r_b = True
@@ -139,6 +139,7 @@ def state_to_features_bfs_2(game_state):
     #     #other_dist = min(5, other_dist)
     #     #free_dist = min(2, free_dist)
 
+    print('arena: ', arena)
     feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
     return feature_vec
 
