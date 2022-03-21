@@ -60,11 +60,11 @@ def forest_update(self):
 
 def setup_training(self):
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
-    self.reward_data = 0 # for plotting
+    self.reward_data = 0  # for plotting
 
-    with open('data.csv', 'w') as f:
+    with open("data.csv", "w") as f:
         writer = csv.writer(f)
-        writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+        writer.writerow(["round", "score", "survival time", "total rewards"])
 
 
 def game_events_occurred(
@@ -77,13 +77,33 @@ def game_events_occurred(
 
     # custom events use event_functions here
     if old_game_state is not None:
-        if event_functions.drop_bomb_next_to_crate(feature_functions.state_to_features_bfs_2(old_game_state), events) == 1:
+        if (
+            event_functions.drop_bomb_next_to_crate(
+                feature_functions.state_to_features_bfs_2(old_game_state), events
+            )
+            == 1
+        ):
             events.append(DROP_BOMB_NEXT_TO_CRATE)
-        if event_functions.drop_bomb_next_to_crate(feature_functions.state_to_features_bfs_2(old_game_state), events) == 0:
+        if (
+            event_functions.drop_bomb_next_to_crate(
+                feature_functions.state_to_features_bfs_2(old_game_state), events
+            )
+            == 0
+        ):
             events.append(RANDOM_BOMB_DROPPED)
-        if event_functions.walked_to_free_tile(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 1:
+        if (
+            event_functions.walked_to_free_tile(
+                feature_functions.state_to_features_bfs_2(old_game_state), self_action
+            )
+            == 1
+        ):
             events.append(WALKED_TO_FREE_TILE)
-        if event_functions.walked_to_free_tile(feature_functions.state_to_features_bfs_2(old_game_state), self_action) == 0:
+        if (
+            event_functions.walked_to_free_tile(
+                feature_functions.state_to_features_bfs_2(old_game_state), self_action
+            )
+            == 0
+        ):
             events.append(STAYED_IN_DANGER_ZONE)
 
         self.transitions.append(
@@ -124,9 +144,16 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
             reward_from_events(self, events),
         )
     )
-    with open('data.csv', 'a') as f:
+    with open("data.csv", "a") as f:
         writer = csv.writer(f)
-        writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data))
+        writer.writerow(
+            (
+                last_game_state["round"],
+                last_game_state["self"][1],
+                last_game_state["step"],
+                self.reward_data,
+            )
+        )
 
     # reset reward counter for plotting
     self.reward_data = 0
@@ -153,14 +180,13 @@ def reward_from_events(self, events: List[str]):
         # e.KILLED_SELF: -2,
         e.KILLED_OPPONENT: 10,
         e.GOT_KILLED: -10,
-        e.CRATE_DESTROYED: 1,
+        # e.CRATE_DESTROYED: 1,
         # MADE_SUGGESTED_MOVE: 5,
         DROP_BOMB_NEXT_TO_CRATE: 2,
         WALKED_TO_FREE_TILE: 2,
         STAYED_IN_DANGER_ZONE: -2,
         RANDOM_BOMB_DROPPED: -10,
         # IN_DANGER_ZONE: -5,
-
     }
     reward_sum = 0
     for event in events:

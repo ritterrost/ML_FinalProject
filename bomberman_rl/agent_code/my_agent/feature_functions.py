@@ -26,6 +26,7 @@ SIGHT = 1
 BOMBS_FEAT_SIZE = 12
 BR = 3
 
+
 def state_to_features_bfs_2(game_state):
     arena = game_state["field"]
     others = np.asarray([xy for (n, s, b, xy) in game_state["others"]])
@@ -36,11 +37,19 @@ def state_to_features_bfs_2(game_state):
     _, _, _, (x, y) = game_state["self"]
     pos_self = np.asarray((x, y))
 
-    rel_field = np.array([arena[x, y], arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
+    rel_field = np.array(
+        [
+            arena[x, y],
+            arena[x - 1, y],
+            arena[x + 1, y],
+            arena[x, y - 1],
+            arena[x, y + 1],
+        ]
+    )
 
-    #save original arena
+    # save original arena
     orig_arena = arena
-    
+
     # overlay arena
     if others.shape[0] != 0:
         arena[others[:, 0], others[:, 1]] = 2
@@ -58,22 +67,26 @@ def state_to_features_bfs_2(game_state):
             for i in range(BR + 1):
                 if not u_b:
                     if arena[b[0] - i, b[1]] != -1:
-                        arena[b[0] - i, b[1]] = 4
+                        if arena[b[0] - i, b[1]] != 1:
+                            arena[b[0] - i, b[1]] = 4
                     else:
                         u_b = True
                 if not d_b:
                     if arena[b[0] + i, b[1]] != -1:
-                        arena[b[0] + i, b[1]] = 4
+                        if arena[b[0] + i, b[1]] != 1:
+                            arena[b[0] + i, b[1]] = 4
                     else:
                         d_b = True
                 if not l_b:
                     if arena[b[0], b[1] - i] != -1:
-                        arena[b[0], b[1] - i] = 4
+                        if arena[b[0], b[1] - i] != 1:
+                            arena[b[0], b[1] - i] = 4
                     else:
                         l_b = True
                 if not r_b:
                     if arena[b[0], b[1] + i] != -1:
-                        arena[b[0], b[1] + i] = 4
+                        if arena[b[0], b[1] + i] != 1:
+                            arena[b[0], b[1] + i] = 4
                     else:
                         r_b = True
 
@@ -97,7 +110,7 @@ def state_to_features_bfs_2(game_state):
     if 1 in arena:
         next_coord, crate_dist = bfs_cc(orig_arena, arena, (x, y), "crate")
         if next_coord is not None:
-            crate_step =  next_coord - pos_self
+            crate_step = next_coord - pos_self
         # if 1 in rel_field:
         #     # print('1 in rel field')
         #     next_step = np.array([1, 1])
@@ -108,7 +121,7 @@ def state_to_features_bfs_2(game_state):
     next_coord, free_dist = bfs_cc(orig_arena, arena, pos_self, "free")
     if next_coord is not None:
         free_step = next_coord - pos_self
-    
+
     other_step = np.array([1, 1])
     other_dist = -1
     if others.shape[0] != 0:
@@ -126,8 +139,11 @@ def state_to_features_bfs_2(game_state):
     other_feat = np.append(other_step, other_dist)
 
     # feature_vec = np.concatenate((rel_field, coin_feat, crate_feat, free_feat, other_feat))
-    feature_vec = np.concatenate((rel_field, coin_step, crate_step, free_step, other_step))
+    feature_vec = np.concatenate(
+        (rel_field, coin_step, crate_step, free_step, other_step)
+    )
     return feature_vec
+
 
 def bfs_cc(orig_arena, arena, start, target: str):
     target_dict = {
@@ -162,10 +178,10 @@ def bfs_cc(orig_arena, arena, start, target: str):
             # print('arena[y][x]', arena[x][y])
             # print('path: ', path)
             if len(path) > 1:
-                dist = len(path)-1
+                dist = len(path) - 1
                 return path[1], dist
             else:
-                dist = len(path)-1
+                dist = len(path) - 1
                 return path[0], dist
         for x2, y2 in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
             if (

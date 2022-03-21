@@ -206,14 +206,16 @@ class GenericWorld:
         self.evaluate_explosions()
         self.send_game_events()
 
-        # VIETNAM for vietnam add random bomb with 
-        if self.args.scenario == 'vietnam':
+        # VIETNAM for vietnam add random bomb with
+        if self.args.scenario == "vietnam":
             if len(self.active_agents) != 0:
                 r = np.random.rand()
-                if r < s.SCENARIOS['vietnam']['BOMB_PROB']:
+                if r < s.SCENARIOS["vietnam"]["BOMB_PROB"]:
                     pos = np.random.choice(np.arange(1, 16, 2), 2)
                     a = self.active_agents[0]
-                    sprite = pygame.image.load(f'agent_code/{a.code_name}/vietnam_bomb.png')
+                    sprite = pygame.image.load(
+                        f"agent_code/{a.code_name}/vietnam_bomb.png"
+                    )
                     self.bombs.append(Bomb(pos, a, s.BOMB_TIMER, s.BOMB_POWER, sprite))
 
         if self.time_to_stop():

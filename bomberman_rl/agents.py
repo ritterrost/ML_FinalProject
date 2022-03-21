@@ -15,10 +15,7 @@ import settings as s
 from fallbacks import pygame
 
 AGENT_API = {
-    "callbacks": {
-        "setup": ["self"],
-        "act": ["self", "game_state: dict"],
-    },
+    "callbacks": {"setup": ["self"], "act": ["self", "game_state: dict"],},
     "train": {
         "setup_training": ["self"],
         "game_events_occurred": [

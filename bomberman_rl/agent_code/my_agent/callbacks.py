@@ -12,7 +12,7 @@ A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 A_IDX = np.arange(0, 6, 1, dtype="int")
 
 # Hyperparameters
-MAX_DEPTH = None #better: less than 15
+MAX_DEPTH = None  # better: less than 15
 MAX_LEAF_NODES = 100000
 MIN_SAMPLES_SPLIT = 5
 N_ESTIMATORS = 50
@@ -50,7 +50,11 @@ def setup(self):
     if self.train:
         self.forests = [
             RandomForestRegressor(
-                n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, bootstrap=True
+                n_estimators=N_ESTIMATORS,
+                max_depth=MAX_DEPTH,
+                bootstrap=True,
+                max_leaf_nodes=MAX_LEAF_NODES,
+                min_samples_split=MIN_SAMPLES_SPLIT,
             )
             for a in ACTIONS
         ]

@@ -20,13 +20,16 @@ A_TO_COORD = {
 #     if (np.array(A_TO_COORD[action]) == state[0:2]).all():
 #         return 1
 
+
 def walked_to_free_tile(state, action):
-    if (4 == state[0]):
+    if 4 == state[0]:
         if (A_TO_COORD[action] == state[9:11]).all():
             return 1
-        else: return 0
+        else:
+            return 0
     else:
         return -1
+
 
 def drop_bomb_next_to_crate(state, events):
     if "BOMB_DROPPED" in events:
@@ -43,5 +46,5 @@ def drop_bomb_next_to_crate(state, events):
 #     if t.state[6] == 1:
 #         return 1
 #     else:
-        # return 0
-# 
+# return 0
+#
