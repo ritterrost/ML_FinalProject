@@ -12,14 +12,17 @@ A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 A_IDX = np.arange(0, 6, 1, dtype="int")
 
 # Hyperparameters
-MAX_DEPTH = 10
-N_ESTIMATORS = 20
-# RANGE = 6
+MAX_DEPTH = None #better: less than 15
+MAX_LEAF_NODES = 100000
+MIN_SAMPLES_SPLIT = 5
+N_ESTIMATORS = 50
+HISTORY_SIZE = 10000000
 EPSILON_TRAIN = 0.2
+RHO_TRAIN = 50
+# RANGE = 6
 EPSILON = 0.05
-RHO_TRAIN = 1
 RHO = 0.1
-FEAT_DIM = 12
+FEAT_DIM = 13
 
 
 def policy_alt(self):

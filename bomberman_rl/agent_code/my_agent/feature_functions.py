@@ -36,7 +36,7 @@ def state_to_features_bfs_2(game_state):
     _, _, _, (x, y) = game_state["self"]
     pos_self = np.asarray((x, y))
 
-    rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
+    rel_field = np.array([arena[x, y], arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]])
 
     #save original arena
     orig_arena = arena
@@ -125,8 +125,8 @@ def state_to_features_bfs_2(game_state):
     free_feat = np.append(free_step, free_dist)
     other_feat = np.append(other_step, other_dist)
 
-    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat))
-    # print('feature vec: ', feature_vec)
+    # feature_vec = np.concatenate((rel_field, coin_feat, crate_feat, free_feat, other_feat))
+    feature_vec = np.concatenate((rel_field, coin_step, crate_step, free_step, other_step))
     return feature_vec
 
 def bfs_cc(orig_arena, arena, start, target: str):

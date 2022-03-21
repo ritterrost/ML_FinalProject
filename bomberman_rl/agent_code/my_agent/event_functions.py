@@ -16,17 +16,26 @@ A_TO_COORD = {
 }
 
 
-def made_suggested_move(state, action):
-    if (np.array(A_TO_COORD[action]) == state[0:2]).all():
-        return 1
+# def made_suggested_move(state, action):
+#     if (np.array(A_TO_COORD[action]) == state[0:2]).all():
+#         return 1
 
-
-def drop_bomb_next_to_crate(state, action):
-    if 1 in state[0:4]:
-        if action == "BOMB":
+def walked_to_free_tile(state, action):
+    if (4 == state[0]):
+        if (A_TO_COORD[action] == state[9:11]).all():
             return 1
+        else: return 0
     else:
-        return 0
+        return -1
+
+def drop_bomb_next_to_crate(state, events):
+    if "BOMB_DROPPED" in events:
+        if 1 in state[1:5]:
+            return 1
+        else:
+            return 0
+    else:
+        return -1
 
 
 # def in_danger_zone(self):
