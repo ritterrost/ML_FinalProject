@@ -20,7 +20,7 @@ import numpy as np
 # Feature Parameter
 BOMBS_FEAT_SIZE = 12
 BR = 3
-FEAT_DIM = 13
+FEAT_DIM = 14
 
 
 
@@ -64,7 +64,7 @@ def state_to_features_bfs_2(game_state):
     bombs = game_state["bombs"]
     bombs_xy = np.asarray([[bomb_x, bomb_y] for ((bomb_x, bomb_y), _) in bombs])
     explosion_map = game_state["explosion_map"]
-    _, _, _, (x, y) = game_state["self"]
+    _, _, has_bomb, (x, y) = game_state["self"]
     pos_self = np.asarray((x, y))
 
     #save original arena
@@ -99,9 +99,6 @@ def state_to_features_bfs_2(game_state):
         next_coord, crate_dist = bfs_cc(orig_arena, arena, (x, y), "crate")
         if next_coord is not None:
             crate_step =  next_coord - pos_self
-        # if 1 in rel_field:
-        #     # print('1 in rel field')
-        #     next_step = np.array([1, 1])
 
     free_step = np.array([1, 1])
     free_dist = -1
@@ -115,8 +112,6 @@ def state_to_features_bfs_2(game_state):
         next_coord, other_dist = bfs_cc(orig_arena, arena, pos_self, "other")
         if next_coord is not None:
             other_step = next_coord - pos_self
-
-    # rel_field = np.array([arena[x-1, y], arena[x+1, y], arena[x, y-1], arena[x, y+1]]) != 0
     
     #drop test bomb at location to see if can escape
     explosion_range((x,y), arena)
@@ -139,8 +134,7 @@ def state_to_features_bfs_2(game_state):
     #     #other_dist = min(5, other_dist)
     #     #free_dist = min(2, free_dist)
 
-    # print('arena: ', arena)
-    feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
+    feature_vec = np.concatenate([coin_feat, crate_feat, free_feat, other_feat, escape, [has_bomb]])
     return feature_vec
 
 

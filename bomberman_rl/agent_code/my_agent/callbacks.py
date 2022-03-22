@@ -14,9 +14,9 @@ A_IDX = np.arange(0, 6, 1, dtype="int")
 
 #hyperparameters
 MAX_DEPTH = None #better: less than 15
-MAX_LEAF_NODES = 1000
+MAX_LEAF_NODES = 10000
 MIN_SAMPLES_SPLIT = 5
-N_ESTIMATORS = 20
+N_ESTIMATORS = 50
 HISTORY_SIZE = 10000
 EPSILON_TRAIN = 0.2
 RHO_TRAIN = 50

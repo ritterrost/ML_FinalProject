@@ -36,10 +36,16 @@ A_IDX = np.arange(0, A_NUM, 1, dtype="int")
 def setup_training(self):
     # self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.reward_data = 0 # for plotting
-
-    with open('data.csv', 'w') as f:
-        writer = csv.writer(f)
-        writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+    
+    if not self.keep_training:
+        with open('data.csv', 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+        
+        with open('bincount.csv', 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow([*(np.arange(0, 10) - 1), '>8']*4)
+            writer.writerow([*["coin"]*11, *["crate"]*11, *["free"]*11, *["other"]*11, ])
 
 
 def forest_update(self):
@@ -94,7 +100,28 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     with open('data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data))
+    
+    arrs = []
+    for idx in A_IDX:
+        if len(self.feat_history[idx]) == 0:
+            continue
+        else:
+            arrs.append(np.array(self.feat_history[idx]))
+    arr = np.vstack(arrs) + 1
+    coin_dist = np.bincount(arr[:,2], minlength=11)
+    crate_dist = np.bincount(arr[:,5], minlength=11)
+    free_dist = np.bincount(arr[:,8], minlength=11)
+    other_dist = np.bincount(arr[:,11], minlength=11)
+    row = []
+    for bincount in [coin_dist, crate_dist, free_dist, other_dist]:
+        row.extend(bincount[:10])
+        row.append(np.sum(bincount[10:]))
+    
+    with open('bincount.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
         
+    
     reward = total_rewards(self, events, last_game_state, None)
     self.reward_data += reward
 
@@ -115,12 +142,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.forests, file)
-    # with open("current_model/feature_history.pt", "wb") as file:
-    #     pickle.dump(self.feat_history, file)
-    # with open("current_model/next_feature_history.pt", "wb") as file:
-    #     pickle.dump(self.next_feat_history, file)
-    # with open("current_model/reward_history.pt", "wb") as file:
-    #     pickle.dump(self.reward_history, file)
 
 
 def total_rewards(self, events, old_game_state, new_game_state):

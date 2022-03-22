@@ -56,15 +56,14 @@ def reward_from_events(self, events: list[str]):
         e.COIN_COLLECTED: 60,
         e.KILLED_SELF: -100,
         e.SURVIVED_ROUND: 100,
-        # e.KILLED_OPPONENT: 0,
-        e.GOT_KILLED: -100,
+        e.GOT_KILLED: -300,
         DROP_BOMB_NEXT_TO_CRATE: 60,
         e.BOMB_DROPPED: -40,
         WALKED_FROM_DANGER: 40,
         STAYS_IN_DANGER_ZONE: -40,
         WALKED_TO_COIN: 10,
         HAS_NO_ESCAPE: -100,
-        e.KILLED_OPPONENT: 100,
+        e.KILLED_OPPONENT: 300,
         e.INVALID_ACTION: -5,
     }
 
