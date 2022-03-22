@@ -1,4 +1,5 @@
 import collections
+import numpy as np
 
 """
   Input: game_state: {
@@ -15,13 +16,35 @@ import collections
   Output: features: np.ndarray()
 """
 
-import numpy as np
 
 # Feature Parameter
 BOMBS_FEAT_SIZE = 12
 BR = 3
 FEAT_DIM = 14
 
+A_TO_VEC = {
+    "UP": np.array([0,-1]),
+    "RIGHT": np.array([1, 0]),
+    "DOWN": np.array([0, 1]),
+    "LEFT": np.array([-1, 0]),
+        }
+
+A_TO_NUM = {
+    "UP": 0, 
+    "RIGHT": 1, 
+    "DOWN": 2, 
+    "LEFT": 3, 
+    "WAIT": 4, 
+    "BOMB": 5
+    }
+
+
+VEC_TO_IDX = {
+    ( 0,-1): 0,
+    ( 1, 0): 1,
+    ( 0, 1): 2,
+    (-1, 0): 3,
+    }
 
 
 def explosion_range(bomb_xy, arena):
@@ -73,14 +96,11 @@ def state_to_features_bfs_2(game_state):
     # overlay arena
     if others.shape[0] != 0:
         arena[others[:, 0], others[:, 1]] = 2
-
     if coins.shape[0] != 0:
         arena[coins[:, 0], coins[:, 1]] = 3
-
     if bombs_xy.shape[0] != 0:
         for b in bombs_xy:
             explosion_range(b, arena)
-
 
     explosion_array = np.argwhere(explosion_map == 1)
     if explosion_array.shape[0] != 0:
@@ -185,3 +205,70 @@ def bfs_cc(orig_arena, arena, start, target: str):
                 seen.add((x2, y2))
 
     return None, dist
+
+
+O2 = {
+      'e': np.array([[ 1, 0],
+                     [ 0, 1]]),
+      'pi/2': np.array([[ 0,-1],
+                        [ 1, 0]]),
+      'pi': np.array([[-1, 0],
+                      [ 0,-1]]),
+      '3pi/2': np.array([[ 0, 1],
+                         [-1, 0]]),
+      'sigma_x': np.array([[ 1, 0],
+                           [ 0,-1]]),
+      'sigma_y': np.array([[-1, 0],
+                           [ 0, 1]]),
+      'sigma_d1': np.array([[ 0, 1],
+                            [ 1, 0]]),
+      'sigma_d2': np.array([[ 0,-1],
+                            [-1, 0]])
+      }
+
+O2_func = {
+    'e': lambda m: m,
+    'pi/2': np.rot90,
+    'pi': lambda m: np.rot90(np.rot90(m)),
+    '3pi/2': lambda m: np.rot90(np.rot90(np.rot90(m))),
+    'sigma_x': np.flipud,
+    'sigma_y': np.fliplr,
+    'sigma_d1': lambda m: np.rot90(np.fliplr(m)),
+    'sigma_d2': lambda m: np.rot90(np.flipud(m))
+    }
+
+origin = np.array([8,8])
+
+def orbit(s):
+    feats = {}
+    for g, R in O2.items():
+        sprime = s.copy()
+        if not (s[0:2] == [1,1]).all():
+            sprime[0:2] = s[0:2] @ R.T
+        if not (s[3:5] == [1,1]).all():
+            sprime[3:5] = s[3:5] @ R.T
+        if not (s[6:8] == [1,1]).all():
+            sprime[6:8] = s[6:8] @ R.T
+        if not (s[9:11] == [1,1]).all():
+            sprime[9:11] = s[9:11] @ R.T
+        feats[g] = sprime
+    return feats
+
+
+def update_batch(self, old_feat, new_feat, reward, self_action):
+    old_orbit = orbit(old_feat)
+    new_orbit = orbit(new_feat)
+    if self_action in ["WAIT", "BOMB"]:
+        idx = A_TO_NUM[self_action]
+        self.feat_history[idx].extend(old_orbit.values())
+        self.next_feat_history[idx].extend(new_orbit.values())
+        self.reward_history[idx].extend([reward]*len(O2))
+    else:
+        v = A_TO_VEC[self_action]
+        for g, R in O2.items():
+            idx = VEC_TO_IDX[tuple(v @ R.T)]
+            self.feat_history[idx].append(old_orbit[g])
+            self.next_feat_history[idx].append(new_orbit[g])
+            self.reward_history[idx].append(reward)
+    # self.logger.debug(f"Old Orbit: {old_orbit}")
+    pass
