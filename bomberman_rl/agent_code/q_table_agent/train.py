@@ -37,6 +37,7 @@ SAMPLE_PROP = 0.1  # proportion of data each tree is fitted on in percent
 # for convenience
 A_NUM = 6
 A_IDX = np.arange(0, A_NUM, 1, dtype="int")
+ALPHA = 0.05
 
 
 def setup_training(self):
@@ -52,9 +53,13 @@ def tabular_Q_update(self, idx, old_feat, new_feat, reward):
     used_Q_values = Q_func(self, old_feat)
     used_Q_value = used_Q_values[idx]
     next_Q_value = Q_func(self, new_feat)
-    Y = reward + GAMMA * np.max(next_Q_value)
+    Y = ALPHA * (reward + GAMMA * np.max(next_Q_value))
 
     self.Q_dicts[idx][tuple(old_feat)] = used_Q_value + Y
+    # print(self.Q_dicts[idx][tuple(old_feat)])
+
+    # if np.max(self.Q_dicts[idx][tuple(old_feat)]) != 0:
+    #     self.Q_dicts[idx][tuple(old_feat)] = self.Q_dicts[idx][tuple(old_feat)] / np.max(self.Q_dicts[idx][tuple(old_feat)])
 
 
 def game_events_occurred(

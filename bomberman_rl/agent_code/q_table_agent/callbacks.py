@@ -31,7 +31,6 @@ def Q_func(self, features):
         else:
             Qs[tuple(features)] = 0
             Q_values.append(0)
-    print(Q_values)
     return Q_values
 
 
@@ -56,6 +55,7 @@ def setup(self):
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
             self.Q_dicts = pickle.load(file)
+            print(self.Q_dicts)
 
 
 def policy_alt(self):

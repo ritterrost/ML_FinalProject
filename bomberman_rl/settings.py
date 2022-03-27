@@ -5,14 +5,22 @@ from fallbacks import pygame
 
 # Game properties
 COLS = 17
-ROWS = 17
+ROWS = COLS
 SCENARIOS = {
-    "coin-heaven": {"CRATE_DENSITY": 0, "COIN_COUNT": 50},
+    "coin-heaven": {
+        "CRATE_DENSITY": 0,
+        "COIN_COUNT": 20
+    },
+    "vietnam":{
+        "CRATE_DENSITY": 0,
+        "COIN_COUNT":20,
+        "BOMB_PROB": 0.5
+    },
     # This is the tournament game mode
-    # old 0.75
-    "classic": {"CRATE_DENSITY": 0.75, "COIN_COUNT": 9},
-    # VIETNAM
-    "vietnam": {"CRATE_DENSITY": 0, "COIN_COUNT": 20, "BOMB_PROB": 0.6}
+    "classic": {
+        "CRATE_DENSITY": 0.75,
+        "COIN_COUNT": 9
+    }
     # Feel free to add more game modes and properties
     # game is created in environment.py -> BombeRLeWorld -> build_arena()
 }
@@ -29,7 +37,7 @@ GRID_OFFSET = [(HEIGHT - ROWS * GRID_SIZE) // 2] * 2
 
 ASSET_DIR = Path(__file__).parent / "assets"
 
-AGENT_COLORS = ["blue", "green", "yellow", "pink"]
+AGENT_COLORS = ['blue', 'green', 'yellow', 'pink']
 
 # Game rules
 BOMB_POWER = 3
@@ -44,16 +52,16 @@ REWARD_COIN = 1
 
 # User input
 INPUT_MAP = {
-    pygame.K_UP: "UP",
-    pygame.K_DOWN: "DOWN",
-    pygame.K_LEFT: "LEFT",
-    pygame.K_RIGHT: "RIGHT",
-    pygame.K_RETURN: "WAIT",
-    pygame.K_SPACE: "BOMB",
+    pygame.K_UP: 'UP',
+    pygame.K_DOWN: 'DOWN',
+    pygame.K_LEFT: 'LEFT',
+    pygame.K_RIGHT: 'RIGHT',
+    pygame.K_RETURN: 'WAIT',
+    pygame.K_SPACE: 'BOMB',
 }
 
 # Logging levels
 LOG_GAME = logging.INFO
 LOG_AGENT_WRAPPER = logging.INFO
-LOG_AGENT_CODE = logging.DEBUG
+LOG_AGENT_CODE = 0
 LOG_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
