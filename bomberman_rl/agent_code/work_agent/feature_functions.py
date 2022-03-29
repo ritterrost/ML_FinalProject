@@ -1,4 +1,4 @@
-import collections
+from collections import deque
 
 """
   Input: game_state: {
@@ -112,10 +112,10 @@ def state_to_features(game_state):
     other_step = np.array([1, 1])
     other_dist = -1
     if others.shape[0] != 0:
-        next_coord, _ = bfs_cc(orig_arena, arena, pos_self, "other")
-        _, bomb_range = bfs_cc(orig_arena, arena, pos_self, "bomb_range")
-        if bomb_range in [0, 1, 2, 3, 4]:
-            other_dist = 1
+        next_coord, other_dist = bfs_cc(orig_arena, arena, pos_self, "other")
+        # _, bomb_range = bfs_cc(orig_arena, arena, pos_self, "bomb_range")
+        # if bomb_range in [0, 1, 2, 3, 4]:
+        #     other_dist = 1
         if next_coord is not None:
             other_step = next_coord - pos_self
 
@@ -170,7 +170,7 @@ def bfs_cc(orig_arena, arena, start, target: str):
         crate_block = -1
         danger_block = 4
     goal = target_dict[target]
-    queue = collections.deque([[start]])
+    queue = deque([[start]])
     seen = set(start)
     dist = -1
     while queue:

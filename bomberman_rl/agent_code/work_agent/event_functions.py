@@ -51,7 +51,7 @@ def has_no_escape(new_state, action):
             return 1
 
 def drop_bomb_close_to_other(state, action):
-    if state[11] == 1:
+    if state[11] <= 4 and state[11] > -1:
         if action == "BOMB":
             return 1
 
@@ -66,9 +66,9 @@ def reward_from_events(self, events: list[str]):
         e.KILLED_OPPONENT: 100,
         e.INVALID_ACTION: -5,
         DROP_BOMB_NEXT_TO_CRATE: 40,
-        DROP_BOMB_CLOSE_TO_OTHER: 10,
-        WALKED_FROM_DANGER: 40,
-        STAYS_IN_DANGER_ZONE: -40,
+        DROP_BOMB_CLOSE_TO_OTHER: 12,
+        WALKED_FROM_DANGER: 50,
+        STAYS_IN_DANGER_ZONE: -70,
         WALKED_TO_COIN: 40,
         HAS_NO_ESCAPE: -100,
     }

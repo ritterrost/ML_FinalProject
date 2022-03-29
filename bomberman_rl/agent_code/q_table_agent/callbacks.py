@@ -55,7 +55,6 @@ def setup(self):
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
             self.Q_dicts = pickle.load(file)
-            print(self.Q_dicts)
 
 
 def policy_alt(self):
@@ -85,3 +84,4 @@ def act(self, game_state: dict):
     a = policy(self, Qs)
     self.logger.debug(f"action a in act: {ACTIONS[a]}")
     return ACTIONS[a]
+

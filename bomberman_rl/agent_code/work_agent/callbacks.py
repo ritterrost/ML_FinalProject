@@ -39,7 +39,6 @@ def setup(self):
         self.next_feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.reward_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.epsilon = EPSILON_TRAIN
-        self.logger.debug("feat_history", self.feat_history)
     else:  
         self.epsilon = 0
 
@@ -49,7 +48,6 @@ def setup(self):
         for idx in A_IDX:
             self.forests[idx].fit(X, y)
     else:
-        self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
             self.forests = pickle.load(file)
 
@@ -85,5 +83,4 @@ def act(self, game_state: dict):
     feat = state_to_features(game_state)
     Qs = Q_func(self, feat)
     a = policy(self, Qs)
-    self.logger.debug(f"action a in act: {ACTIONS[a]}")
     return ACTIONS[a]
