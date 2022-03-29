@@ -62,20 +62,20 @@ def walked_towards_closest_crate(state, action):
 
 def reward_from_events(self, events: list[str]):
     game_rewards = {
-        DROP_BOMB_NEXT_TO_CRATE: 40,
+        # DROP_BOMB_NEXT_TO_CRATE: 40,
         e.COIN_COLLECTED: 60,
         e.KILLED_SELF: -100,
         e.SURVIVED_ROUND: 20,
-        e.GOT_KILLED: -150,
+        e.GOT_KILLED: -100,
         # BOMB_HAS_TARGETS: 15,
-        # BOMB_HAS_NOTHING: -40,
+        # BOMB_HAS_NOTHIG: -40,
         e.BOMB_DROPPED: -40,
         WALKED_FROM_DANGER: 30,
         STAYS_IN_DANGER_ZONE: -50,
-        WALKED_TO_COIN: 15,
-        WALKED_TO_CRATE: 5,
+        WALKED_TO_COIN: 40,
+        # WALKED_TO_CRATE: 5,
         HAS_NO_ESCAPE: -100,
-        e.KILLED_OPPONENT: 300,
+        # e.KILLED_OPPONENT: 300,
         e.INVALID_ACTION: -10,
 
     }
