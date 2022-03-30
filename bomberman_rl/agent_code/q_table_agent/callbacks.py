@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import make_regression
 from collections import deque
 from .feature_functions import state_to_features, FEAT_DIM
+import random
 
 # Game Parameter
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
@@ -35,15 +36,12 @@ def Q_func(self, features):
 
 
 def setup(self):
-    self.keep_training = False
-    for arg in sys.argv:
-        if arg=="--keep-training":
-            self.keep_training = True
-            break
     if self.train:
 
         self.Q_dicts = [{}, {}, {}, {}, {}, {}]
-        self.Q_values = [0, 0, 0, 0, 0, 0]
+        # self.Q_values = [0, 0, 0, 0, 0, 0]
+        self.Q_values = [random.random() for i in range(6)]
+        print(self.Q_values)
 
         self.feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.next_feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]

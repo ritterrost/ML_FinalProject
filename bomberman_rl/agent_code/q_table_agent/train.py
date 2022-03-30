@@ -1,6 +1,7 @@
 from hashlib import new
 from os import stat
 import pickle
+import re
 from typing import List
 import numpy as np
 from agent_code.houdini_agent.event_functions import WALKED_TO_CRATE
@@ -86,8 +87,8 @@ def game_events_occurred(
             events.append(WALKED_FROM_DANGER)
         elif walked_from_danger(old_feat, self_action) == -1:
             events.append(STAYS_IN_DANGER_ZONE)
-        # if drop_bomb_next_to_crate(old_feat, events):
-        #     events.append(DROP_BOMB_NEXT_TO_CRATE)
+        if drop_bomb_next_to_crate(old_feat, events):
+            events.append(DROP_BOMB_NEXT_TO_CRATE)
         if has_no_escape(new_feat, self_action):
             events.append(HAS_NO_ESCAPE)
         if walked_towards_closest_crate(new_feat, self_action):
@@ -101,6 +102,8 @@ def game_events_occurred(
                 self.coins_collected += 1
 
         idx = A_TO_NUM[self_action]
+        print(self_action)
+        print(rewards)
         # print('feat: ', state_to_features(new_game_state))
         # self.logger.debug(f"feature_vec: {old_feat}")
         tabular_Q_update(self, idx, old_feat, new_feat, rewards)

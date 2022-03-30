@@ -19,8 +19,8 @@ import numpy as np
 
 # Feature Parameter
 BOMBS_FEAT_SIZE = 12
-BR = 3
-FEAT_DIM = 13
+BR = 7
+FEAT_DIM = 7
 
 
 
@@ -141,7 +141,7 @@ def state_to_features(game_state):
 
     # print('arena: ', arena)
     # feature_vec = np.concatenate((coin_feat, crate_feat, free_feat, other_feat, escape))
-    feature_vec = coin_feat
+    feature_vec = np.concatenate((coin_step, free_feat))
     return feature_vec
 
 

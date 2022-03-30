@@ -8,6 +8,7 @@ import events as e
 
 DROP_BOMB_CLOSE_TO_OTHER = "DROP_BOMB_CLOSE_TO_OTHER"
 WALKED_TO_COIN = "WALKED_TO_COIN"
+WALKED_TO_CRATE = "WALKED_TO_CRATE"
 DROP_BOMB_NEXT_TO_CRATE = "DROP_BOMB_NEXT_TO_CRATE"
 WALKED_FROM_DANGER = "WALKED_FROM_DANGER"
 STAYS_IN_DANGER_ZONE = "STAYS_IN_DANGER_ZONE"
@@ -30,54 +31,53 @@ def walked_towards_closest_coin(state, action):
 
 
 def walked_from_danger(state, action):
-    if state[5] == 0:  # check if in danger (distance to free tile)
+    if state[4] == 0:  # check if in danger (distance to free tile)
         return 0
     else:
-        if (np.array(A_TO_COORD[action]) == state[3:5]).all():  # align action with direction of free field
+        if (np.array(A_TO_COORD[action]) == state[2:4]).all():  # align action with direction of free field
             return 1
         else:
             return -1
 
 
 def drop_bomb_next_to_crate(state, events):
-    if state[5] == 1:  # distance to crate
+    if state[7] == 1:  # distance to crate
         if e.BOMB_DROPPED in events:
             return 1
 
 
 def has_no_escape(new_state, action):
     if action == 'BOMB':
-        if new_state[5] > 4 or new_state[5] == -1:
+        if new_state[4] > 4 or new_state[4] == -1:
             return 1
 
-def drop_bomb_close_to_other(state, action):
-    if state[11] == 1:
-        if action == "BOMB":
-            return 1
+# def drop_bomb_close_to_other(state, action):
+#     if state[11] == 1:
+#         if action == "BOMB":
+#             return 1
 
 def walked_towards_closest_crate(state, action):
-    if (np.array(A_TO_COORD[action]) == state[3:5]).all() and not state[5]==1: # align action with direction of coin
+    if (np.array(A_TO_COORD[action]) == state[5:7]).all() and not state[7]==1: # align action with direction of coin
         return 1
 
 
 def reward_from_events(self, events: list[str]):
     game_rewards = {
-        # DROP_BOMB_NEXT_TO_CRATE: 40,
-        e.COIN_COLLECTED: 60,
-        e.KILLED_SELF: -100,
-        e.SURVIVED_ROUND: 20,
-        e.GOT_KILLED: -100,
-        # BOMB_HAS_TARGETS: 15,
-        # BOMB_HAS_NOTHIG: -40,
-        e.BOMB_DROPPED: -40,
-        WALKED_FROM_DANGER: 30,
-        STAYS_IN_DANGER_ZONE: -50,
-        WALKED_TO_COIN: 40,
-        # WALKED_TO_CRATE: 5,
-        HAS_NO_ESCAPE: -100,
-        # e.KILLED_OPPONENT: 300,
-        e.INVALID_ACTION: -10,
-
+        # e.COIN_COLLECTED: 60,
+        # e.KILLED_SELF: -20,
+        # e.SURVIVED_ROUND: 100,
+        # e.KILLED_OPPONENT: 0,
+        # e.GOT_KILLED: -100,
+        DROP_BOMB_NEXT_TO_CRATE: 60,
+        # e.CRATE_DESTROYED: 40,
+        # e.BOMB_DROPPED: -20,
+        WALKED_FROM_DANGER: 40,
+        WALKED_TO_CRATE: 10,
+        # STAYS_IN_DANGER_ZONE: -60,
+        # WALKED_TO_COIN: 10,
+        # HAS_NO_ESCAPE: -100,
+        # e.KILLED_OPPONENT: 100,
+        e.INVALID_ACTION: -5,
     }
         
     reward_sum = 0

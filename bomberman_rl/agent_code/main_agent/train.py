@@ -2,9 +2,18 @@ from os import stat
 import pickle
 from typing import List
 import numpy as np
+import events as e
 
-from .event_functions import walked_towards_closest_coin, walked_from_danger, \
-    drop_bomb_next_to_crate, has_no_escape, reward_from_events
+# from .event_functions import walked_towards_closest_coin, walked_from_danger, \
+#     drop_bomb_next_to_crate, has_no_escape, reward_from_events
+from .event_functions import (
+    walked_towards_closest_coin,
+    walked_from_danger,
+    # drop_bomb_next_to_crate,
+    has_no_escape,
+    reward_from_events,
+    # walked_towards_closest_crate
+) 
 from .feature_functions import state_to_features
 from .callbacks import A_TO_NUM, Q, ACTIONS
 
@@ -12,10 +21,13 @@ import csv
 
 # Events
 WALKED_TO_COIN = "WALKED_TO_COIN"
+WALKED_FROM_COIN = "WALKED_FROM_COIN"
 DROP_BOMB_NEXT_TO_CRATE = "DROP_BOMB_NEXT_TO_CRATE"
 WALKED_FROM_DANGER = "WALKED_FROM_DANGER"
 STAYS_IN_DANGER_ZONE = "STAYS_IN_DANGER_ZONE"
 HAS_NO_ESCAPE = "HAS_NO_ESCAPE"
+WALKED_TO_CRATE = "WALKED_TO_CRATE"
+
 
 
 # This is only an example!
@@ -36,10 +48,11 @@ A_IDX = np.arange(0, A_NUM, 1, dtype="int")
 def setup_training(self):
     # self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.reward_data = 0 # for plotting
+    self.cc = 0
 
     with open('data.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+        writer.writerow(['round', 'score', 'survival time', 'total rewards', 'cc'])
 
 
 def forest_update(self):
@@ -75,12 +88,15 @@ def game_events_occurred(
             events.append(WALKED_FROM_DANGER)
         elif walked_from_danger(old_feat, self_action) == -1:
             events.append(STAYS_IN_DANGER_ZONE)
-        if drop_bomb_next_to_crate(old_feat, events):
-            events.append(DROP_BOMB_NEXT_TO_CRATE)
+        # if drop_bomb_next_to_crate(old_feat, events):
+        #     events.append(DROP_BOMB_NEXT_TO_CRATE)
         if has_no_escape(new_feat, self_action):
             events.append(HAS_NO_ESCAPE)
         reward = total_rewards(self, events, old_game_state, new_game_state)
         self.reward_data += reward
+        for event in events:
+            if event == e.COIN_COLLECTED:
+                self.cc += 1
 
         idx = A_TO_NUM[self_action]
         # print('feat: ', state_to_features(new_game_state))
@@ -93,10 +109,9 @@ def game_events_occurred(
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     with open('data.csv', 'a') as f:
         writer = csv.writer(f)
-        writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data))
+        writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data, self.cc))
         
     reward = total_rewards(self, events, last_game_state, None)
-    self.reward_data += reward
 
     old_feat = state_to_features(last_game_state)
     new_feat = state_to_features(None)
@@ -108,6 +123,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     # reset reward counter for plotting
     self.reward_data = 0
+    self.cc = 0
 
     # update forests for all actions
     forest_update(self)
