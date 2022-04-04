@@ -5,19 +5,18 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import make_regression
 from collections import deque
-from .feature_functions import state_to_features_bfs_2 as state_to_features, FEAT_DIM
+from .feature_functions import state_to_features_bfs_2 as state_to_features, FEAT_DIM, A_TO_NUM
 
 # Game Parameter
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
-A_TO_NUM = {"UP": 0, "RIGHT": 1, "DOWN": 2, "LEFT": 3, "WAIT": 4, "BOMB": 5}
 A_IDX = np.arange(0, 6, 1, dtype="int")
 
 #hyperparameters
 MAX_DEPTH = None #better: less than 15
-MAX_LEAF_NODES = 1000
+MAX_LEAF_NODES = int(1e4)
 MIN_SAMPLES_SPLIT = 5
-N_ESTIMATORS = 20
-HISTORY_SIZE = 10000
+N_ESTIMATORS = 50
+HISTORY_SIZE = int(1e6)
 EPSILON_TRAIN = 0.2
 RHO_TRAIN = 50
 
@@ -31,27 +30,36 @@ def setup(self):
     if self.train:
         self.forests = [
             RandomForestRegressor(
-                n_estimators = N_ESTIMATORS, max_depth = MAX_DEPTH, bootstrap = True, max_leaf_nodes = MAX_LEAF_NODES, min_samples_split = MIN_SAMPLES_SPLIT
+                n_estimators = N_ESTIMATORS, max_depth = MAX_DEPTH, bootstrap = True, 
+                max_leaf_nodes = MAX_LEAF_NODES, min_samples_split = MIN_SAMPLES_SPLIT
                 )
                 for a in ACTIONS
-        ]
+            ]
         self.feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.next_feat_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.reward_history = [deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE), deque(maxlen=HISTORY_SIZE)]
         self.epsilon = EPSILON_TRAIN
-        self.logger.debug("feat_history", self.feat_history)
     else:  
         self.epsilon = 0
 
-    if (self.train and not self.keep_training) or not os.path.isfile("my-saved-model.pt"):
+    if (self.train and not self.keep_training) or not os.path.isfile("current_model/my-saved-model.pt"):
         # initial forest, create random model of right dimension and make fit
         X, y = make_regression(n_features=FEAT_DIM)
         for idx in A_IDX:
             self.forests[idx].fit(X, y)
     else:
         self.logger.info("Loading model from saved state.")
-        with open("my-saved-model.pt", "rb") as file:
-            self.forests = pickle.load(file)
+        with open("current_model/my-saved-model.pt", "rb") as file:
+                self.forests = pickle.load(file)
+    if self.keep_training and os.path.isfile("current_model/feature_history.pt") \
+    and os.path.isfile("current_model/next_feature_history.pt") \
+    and os.path.isfile("current_model/reward_history.pt"):
+        with open("current_model/feature_history.pt", "rb") as file:
+            self.feat_history = pickle.load(file)
+        with open("current_model/next_feature_history.pt", "rb") as file:
+            self.next_feat_history = pickle.load(file)
+        with open("current_model/reward_history.pt", "rb") as file:
+            self.reward_history = pickle.load(file)
 
 
 def policy_alt(self):

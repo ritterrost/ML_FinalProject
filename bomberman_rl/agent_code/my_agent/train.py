@@ -6,6 +6,7 @@ import numpy as np
 from .event_functions import walked_towards_closest_coin, walked_from_danger, \
     drop_bomb_next_to_crate, has_no_escape, reward_from_events
 from .feature_functions import state_to_features_bfs_2 as state_to_features
+from .feature_functions import update_batch
 from .callbacks import A_TO_NUM, Q, ACTIONS
 
 import csv
@@ -36,10 +37,16 @@ A_IDX = np.arange(0, A_NUM, 1, dtype="int")
 def setup_training(self):
     # self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.reward_data = 0 # for plotting
-
-    with open('data.csv', 'w') as f:
-        writer = csv.writer(f)
-        writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+    
+    if not self.keep_training:
+        with open('data.csv', 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['round', 'score', 'survival time', 'total rewards'])
+        
+        with open('bincount.csv', 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow([*(np.arange(0, 10) - 1), '>8']*4)
+            writer.writerow([*["coin"]*11, *["crate"]*11, *["free"]*11, *["other"]*11, ])
 
 
 def forest_update(self):
@@ -65,7 +72,6 @@ def game_events_occurred(
     events: List[str],
 ):
 
-    # custom events use event_functions here
     if old_game_state is not None:
         old_feat = state_to_features(old_game_state)
         new_feat = state_to_features(new_game_state)
@@ -79,32 +85,46 @@ def game_events_occurred(
             events.append(DROP_BOMB_NEXT_TO_CRATE)
         if has_no_escape(new_feat, self_action):
             events.append(HAS_NO_ESCAPE)
+            
         reward = total_rewards(self, events, old_game_state, new_game_state)
         self.reward_data += reward
-
-        idx = A_TO_NUM[self_action]
-        # print('feat: ', state_to_features(new_game_state))
-        # self.logger.debug(f"feature_vec: {old_feat}")
-        self.feat_history[idx].append(old_feat)
-        self.reward_history[idx].append(reward)
-        self.next_feat_history[idx].append(new_feat)
+        
+        update_batch(self, old_feat, new_feat, reward, self_action)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     with open('data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow((last_game_state["round"], last_game_state["self"][1], last_game_state["step"], self.reward_data))
+    
+    arrs = []
+    for idx in A_IDX:
+        if len(self.feat_history[idx]) == 0:
+            continue
+        else:
+            arrs.append(np.array(self.feat_history[idx]))
+    arr = np.vstack(arrs) + 1
+    coin_dist = np.bincount(arr[:,2], minlength=11)
+    crate_dist = np.bincount(arr[:,5], minlength=11)
+    free_dist = np.bincount(arr[:,8], minlength=11)
+    other_dist = np.bincount(arr[:,11], minlength=11)
+    row = []
+    for bincount in [coin_dist, crate_dist, free_dist, other_dist]:
+        row.extend(bincount[:10])
+        row.append(np.sum(bincount[10:]))
+    
+    with open('bincount.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
         
+    
     reward = total_rewards(self, events, last_game_state, None)
     self.reward_data += reward
 
     old_feat = state_to_features(last_game_state)
     new_feat = state_to_features(None)
-    idx = A_TO_NUM[last_action]
     # self.logger.debug(f"feature_vec: {old_feat}")
-    self.feat_history[idx].append(old_feat)
-    self.reward_history[idx].append(reward)
-    self.next_feat_history[idx].append(new_feat)
+    update_batch(self, old_feat, new_feat, reward, last_action)
 
     # reset reward counter for plotting
     self.reward_data = 0
@@ -113,14 +133,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     forest_update(self)
 
     # Store the model
-    with open("my-saved-model.pt", "wb") as file:
+    with open("current_model/my-saved-model.pt", "wb") as file:
         pickle.dump(self.forests, file)
-    # with open("current_model/feature_history.pt", "wb") as file:
-    #     pickle.dump(self.feat_history, file)
-    # with open("current_model/next_feature_history.pt", "wb") as file:
-    #     pickle.dump(self.next_feat_history, file)
-    # with open("current_model/reward_history.pt", "wb") as file:
-    #     pickle.dump(self.reward_history, file)
+    with open("current_model/feature_history.pt", "wb") as file:
+        pickle.dump(self.feat_history, file)
+    with open("current_model/next_feature_history.pt", "wb") as file:
+        pickle.dump(self.next_feat_history, file)
+    with open("current_model/reward_history.pt", "wb") as file:
+        pickle.dump(self.reward_history, file)
+
 
 
 def total_rewards(self, events, old_game_state, new_game_state):
