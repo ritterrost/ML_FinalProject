@@ -63,8 +63,8 @@ def walked_towards_closest_crate(state, action):
 
 def reward_from_events(self, events: list[str]):
     game_rewards = {
-        # e.COIN_COLLECTED: 60,
-        # e.KILLED_SELF: -20,
+        e.COIN_COLLECTED: 60,
+        e.KILLED_SELF: -20,
         # e.SURVIVED_ROUND: 100,
         # e.KILLED_OPPONENT: 0,
         # e.GOT_KILLED: -100,

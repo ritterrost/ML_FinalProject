@@ -102,8 +102,8 @@ def game_events_occurred(
                 self.coins_collected += 1
 
         idx = A_TO_NUM[self_action]
-        print(self_action)
-        print(rewards)
+        # print(self_action)
+        # print(rewards)
         # print('feat: ', state_to_features(new_game_state))
         # self.logger.debug(f"feature_vec: {old_feat}")
         tabular_Q_update(self, idx, old_feat, new_feat, rewards)

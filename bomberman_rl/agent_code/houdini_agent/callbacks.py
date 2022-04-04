@@ -13,10 +13,10 @@ A_IDX = np.arange(0, 6, 1, dtype="int")
 
 #hyperparameters
 MAX_DEPTH = 15 #better: less than 15
-MAX_LEAF_NODES = int(1e5)
+MAX_LEAF_NODES = 1000
 MIN_SAMPLES_SPLIT = 5
 N_ESTIMATORS = 50
-HISTORY_SIZE = int(1e6)
+HISTORY_SIZE = 100
 EPSILON_TRAIN = 0.1
 RHO_TRAIN = 50
 
